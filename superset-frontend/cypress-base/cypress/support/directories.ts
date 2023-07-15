@@ -84,11 +84,11 @@ export const databasesPage = {
     step: '.helper-top',
     selectDbStepTitle: '.select-db > h4',
     preferredBlockBigQuery: '.preferred > :nth-child(1)',
-    preferredBlockPostgreSQL: '.preferred > :nth-child(2)',
-    preferredBlockSnowflake: '.preferred > :nth-child(3)',
-    preferredBlockMySQL: '.preferred > :nth-child(4)',
-    preferredBlockAthena: '.preferred > :nth-child(5)',
-    preferredBlockSheets: '.preferred > :nth-child(6)',
+    prefferedBlockPostgreSQL: '.preferred > :nth-child(2)',
+    prefferedBlockSnowflake: '.preferred > :nth-child(3)',
+    prefferedBlockMySQL: '.preferred > :nth-child(4)',
+    prefferedBlockAthena: '.preferred > :nth-child(5)',
+    prefferedBlockSheets: '.preferred > :nth-child(6)',
     supportedDatabasesText: '.control-label',
     orChoose: '.available-label',
     dbDropdown: '[class="ant-select-selection-search-input"]',
@@ -127,11 +127,10 @@ export const databasesPage = {
 
 export const sqlLabView = {
   sqlEditorLeftBar: {
-    sqlEditorLeftBar: '[data-test="sql-editor-left-bar"]',
-    databaseSchemaTableSection:
-      '[data-test="sql-editor-left-bar"] > :nth-child(1)',
+    sqlEditorLeftBar: '[class="SqlEditorLeftBar"]',
+    databaseSchemaTableSection: '[class="SqlEditorLeftBar"] > :nth-child(1)',
     tableSchemaSection:
-      '[data-test="sql-editor-left-bar"] > :nth-child(1) > :nth-child(3) > :nth-child(1)',
+      '[class="SqlEditorLeftBar"] > :nth-child(1) > :nth-child(3) > :nth-child(1)',
     tableSchemaInputEmpty: '[aria-label="Select table or type table name"]',
   },
   databaseInput: '[data-test=DatabaseSelector] > :nth-child(1)',
@@ -590,7 +589,7 @@ export const exploreView = {
       okButton: '.ant-modal-confirm-btns .ant-btn-primary',
     },
   },
-  visualizationTypeModal: {
+  vizualizationTypeModal: {
     vizTypeButton: dataTestLocator('viztype-selector-container'),
   },
 };

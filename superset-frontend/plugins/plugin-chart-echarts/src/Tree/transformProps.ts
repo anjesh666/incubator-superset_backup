@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { getMetricLabel, DataRecordValue } from '@superset-ui/core';
+import { ChartProps, getMetricLabel, DataRecordValue } from '@superset-ui/core';
 import { EChartsCoreOption, TreeSeriesOption } from 'echarts';
 import {
   TreeSeriesCallbackDataParams,
@@ -24,14 +24,12 @@ import {
 } from 'echarts/types/src/chart/tree/TreeSeries';
 import { OptionName } from 'echarts/types/src/util/types';
 import {
-  EchartsTreeChartProps,
   EchartsTreeFormData,
+  DEFAULT_FORM_DATA as DEFAULT_GRAPH_FORM_DATA,
   TreeDataRecord,
-  TreeTransformedProps,
 } from './types';
-import { DEFAULT_FORM_DATA, DEFAULT_TREE_SERIES_OPTION } from './constants';
-import { Refs } from '../types';
-import { getDefaultTooltip } from '../utils/tooltip';
+import { DEFAULT_TREE_SERIES_OPTION } from './constants';
+import { EchartsProps } from '../types';
 
 export function formatTooltip({
   params,
@@ -51,11 +49,8 @@ export function formatTooltip({
   ].join('');
 }
 
-export default function transformProps(
-  chartProps: EchartsTreeChartProps,
-): TreeTransformedProps {
+export default function transformProps(chartProps: ChartProps): EchartsProps {
   const { width, height, formData, queriesData } = chartProps;
-  const refs: Refs = {};
   const data: TreeDataRecord[] = queriesData[0].data || [];
 
   const {
@@ -72,7 +67,7 @@ export default function transformProps(
     nodeLabelPosition,
     childLabelPosition,
     emphasis,
-  }: EchartsTreeFormData = { ...DEFAULT_FORM_DATA, ...formData };
+  }: EchartsTreeFormData = { ...DEFAULT_GRAPH_FORM_DATA, ...formData };
   const metricLabel = getMetricLabel(metric);
 
   const nameColumn = name || id;
@@ -206,7 +201,6 @@ export default function transformProps(
     animationEasing: DEFAULT_TREE_SERIES_OPTION.animationEasing,
     series,
     tooltip: {
-      ...getDefaultTooltip(refs),
       trigger: 'item',
       triggerOn: 'mousemove',
       formatter: (params: any) =>
@@ -218,10 +212,8 @@ export default function transformProps(
   };
 
   return {
-    formData,
     width,
     height,
     echartOptions,
-    refs,
   };
 }

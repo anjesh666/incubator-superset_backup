@@ -90,7 +90,7 @@ position:
       chartId: 3962
       height: 82
       sliceName: Vaccine Candidates per Approach & Stage
-      sliceNameOverride: Heatmap of Approaches & Clinical Stages
+      sliceNameOverride: Heatmap of Aproaches & Clinical Stages
       uuid: 0c953c84-0c9a-418d-be9f-2894d2a2cee0
       width: 4
     parents:
@@ -318,15 +318,15 @@ metadata:
     COUNT(*): "#D1C6BC"
   filter_scopes:
     "3965":
-      country_name:
+      Country_Name:
         scope:
           - ROOT_ID
         immune: []
-      product_category:
+      Product_Category:
         scope:
           - ROOT_ID
         immune: []
-      clinical_stage:
+      Clinical Stage:
         scope:
           - ROOT_ID
         immune: []

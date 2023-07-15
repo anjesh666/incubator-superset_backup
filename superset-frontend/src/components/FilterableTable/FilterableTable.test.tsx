@@ -17,10 +17,12 @@
  * under the License.
  */
 import React from 'react';
+import { ReactWrapper } from 'enzyme';
+import { styledMount as mount } from 'spec/helpers/theming';
 import FilterableTable, {
-  convertBigIntStrToNumber,
+  MAX_COLUMNS_FOR_TABLE,
 } from 'src/components/FilterableTable';
-import { render, screen, within } from 'spec/helpers/testing-library';
+import { render, screen } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
 
 describe('FilterableTable', () => {
@@ -33,369 +35,299 @@ describe('FilterableTable', () => {
     ],
     height: 500,
   };
+  let wrapper: ReactWrapper;
+  beforeEach(() => {
+    wrapper = mount(<FilterableTable {...mockedProps} />);
+  });
   it('is valid element', () => {
     expect(React.isValidElement(<FilterableTable {...mockedProps} />)).toBe(
       true,
     );
   });
-  it('renders a grid with 3 Table rows', () => {
-    const { getByRole, getByText } = render(
-      <FilterableTable {...mockedProps} />,
+  it('renders a grid with 2 Table rows', () => {
+    expect(wrapper.find('.ReactVirtualized__Grid')).toExist();
+    expect(wrapper.find('.ReactVirtualized__Table__row')).toHaveLength(3);
+  });
+  it('renders a grid with 2 Grid rows for wide tables', () => {
+    const wideTableColumns = MAX_COLUMNS_FOR_TABLE + 1;
+    const wideTableMockedProps = {
+      orderedColumnKeys: Array.from(
+        Array(wideTableColumns),
+        (_, x) => `col_${x}`,
+      ),
+      data: [
+        {
+          ...Array.from(Array(wideTableColumns)).map((val, x) => ({
+            [`col_${x}`]: x,
+          })),
+        },
+      ],
+      height: 500,
+    };
+    const wideTableWrapper = mount(
+      <FilterableTable {...wideTableMockedProps} />,
     );
-    expect(getByRole('table')).toBeInTheDocument();
-    mockedProps.data.forEach(({ b: columnBContent }) => {
-      expect(getByText(columnBContent)).toBeInTheDocument();
-    });
+    expect(wideTableWrapper.find('.ReactVirtualized__Grid')).toHaveLength(2);
   });
   it('filters on a string', () => {
     const props = {
       ...mockedProps,
       filterText: 'b1',
     };
-    const { getByText, queryByText } = render(<FilterableTable {...props} />);
-    expect(getByText(props.filterText)).toBeInTheDocument();
-    expect(queryByText('b2')).toBeFalsy();
-    expect(queryByText('b3')).toBeFalsy();
+    wrapper = mount(<FilterableTable {...props} />);
+    expect(wrapper.find('.ReactVirtualized__Table__row')).toExist();
   });
   it('filters on a number', () => {
     const props = {
       ...mockedProps,
       filterText: '100',
     };
-    const { getByText, queryByText } = render(<FilterableTable {...props} />);
-    expect(getByText('b2')).toBeInTheDocument();
-    expect(queryByText('b1')).toBeFalsy();
-    expect(queryByText('b3')).toBeFalsy();
+    wrapper = mount(<FilterableTable {...props} />);
+    expect(wrapper.find('.ReactVirtualized__Table__row')).toExist();
   });
 });
 
 describe('FilterableTable sorting - RTL', () => {
   it('sorts strings correctly', () => {
     const stringProps = {
-      orderedColumnKeys: ['columnA'],
-      data: [
-        { columnA: 'Bravo' },
-        { columnA: 'Alpha' },
-        { columnA: 'Charlie' },
-      ],
+      orderedColumnKeys: ['a'],
+      data: [{ a: 'Bravo' }, { a: 'Alpha' }, { a: 'Charlie' }],
       height: 500,
     };
     render(<FilterableTable {...stringProps} />);
 
-    const stringColumn = within(screen.getByRole('table'))
-      .getByText('columnA')
-      .closest('th');
-    // Antd 4.x Table does not follow the table role structure. Need a hacky selector to point the cell item
-    const gridCells = screen.getByTitle('Bravo').closest('.virtual-grid');
+    const stringColumn = screen.getByRole('columnheader', { name: 'a' });
+    const gridCells = screen.getAllByRole('gridcell');
 
     // Original order
-    expect(gridCells?.textContent).toEqual(
-      ['Bravo', 'Alpha', 'Charlie'].join(''),
-    );
+    expect(gridCells[0]).toHaveTextContent('Bravo');
+    expect(gridCells[1]).toHaveTextContent('Alpha');
+    expect(gridCells[2]).toHaveTextContent('Charlie');
 
-    if (stringColumn) {
-      // First click to sort ascending
-      userEvent.click(stringColumn);
-    }
+    // First click to sort ascending
+    userEvent.click(stringColumn);
+    expect(gridCells[0]).toHaveTextContent('Alpha');
+    expect(gridCells[1]).toHaveTextContent('Bravo');
+    expect(gridCells[2]).toHaveTextContent('Charlie');
 
-    expect(gridCells?.textContent).toEqual(
-      ['Alpha', 'Bravo', 'Charlie'].join(''),
-    );
+    // Second click to sort descending
+    userEvent.click(stringColumn);
+    expect(gridCells[0]).toHaveTextContent('Charlie');
+    expect(gridCells[1]).toHaveTextContent('Bravo');
+    expect(gridCells[2]).toHaveTextContent('Alpha');
 
-    if (stringColumn) {
-      // Second click to sort descending
-      userEvent.click(stringColumn);
-    }
-
-    expect(gridCells?.textContent).toEqual(
-      ['Charlie', 'Bravo', 'Alpha'].join(''),
-    );
-
-    if (stringColumn) {
-      // Third click to clear sorting
-      userEvent.click(stringColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      ['Bravo', 'Alpha', 'Charlie'].join(''),
-    );
+    // Third click to clear sorting
+    userEvent.click(stringColumn);
+    expect(gridCells[0]).toHaveTextContent('Bravo');
+    expect(gridCells[1]).toHaveTextContent('Alpha');
+    expect(gridCells[2]).toHaveTextContent('Charlie');
   });
 
   it('sorts integers correctly', () => {
     const integerProps = {
-      orderedColumnKeys: ['columnB'],
-      data: [{ columnB: 21 }, { columnB: 0 }, { columnB: 623 }],
+      orderedColumnKeys: ['b'],
+      data: [{ b: 10 }, { b: 0 }, { b: 100 }],
       height: 500,
     };
     render(<FilterableTable {...integerProps} />);
 
-    const integerColumn = within(screen.getByRole('table'))
-      .getByText('columnB')
-      .closest('th');
-    const gridCells = screen.getByTitle('21').closest('.virtual-grid');
+    const integerColumn = screen.getByRole('columnheader', { name: 'b' });
+    const gridCells = screen.getAllByRole('gridcell');
 
     // Original order
-    expect(gridCells?.textContent).toEqual(['21', '0', '623'].join(''));
+    expect(gridCells[0]).toHaveTextContent('10');
+    expect(gridCells[1]).toHaveTextContent('0');
+    expect(gridCells[2]).toHaveTextContent('100');
 
     // First click to sort ascending
-    if (integerColumn) {
-      userEvent.click(integerColumn);
-    }
-    expect(gridCells?.textContent).toEqual(['0', '21', '623'].join(''));
+    userEvent.click(integerColumn);
+    expect(gridCells[0]).toHaveTextContent('0');
+    expect(gridCells[1]).toHaveTextContent('10');
+    expect(gridCells[2]).toHaveTextContent('100');
 
     // Second click to sort descending
-    if (integerColumn) {
-      userEvent.click(integerColumn);
-    }
-    expect(gridCells?.textContent).toEqual(['623', '21', '0'].join(''));
+    userEvent.click(integerColumn);
+    expect(gridCells[0]).toHaveTextContent('100');
+    expect(gridCells[1]).toHaveTextContent('10');
+    expect(gridCells[2]).toHaveTextContent('0');
 
     // Third click to clear sorting
-    if (integerColumn) {
-      userEvent.click(integerColumn);
-    }
-    expect(gridCells?.textContent).toEqual(['21', '0', '623'].join(''));
+    userEvent.click(integerColumn);
+    expect(gridCells[0]).toHaveTextContent('10');
+    expect(gridCells[1]).toHaveTextContent('0');
+    expect(gridCells[2]).toHaveTextContent('100');
   });
 
   it('sorts floating numbers correctly', () => {
     const floatProps = {
-      orderedColumnKeys: ['columnC'],
-      data: [{ columnC: 45.67 }, { columnC: 1.23 }, { columnC: 89.0000001 }],
+      orderedColumnKeys: ['c'],
+      data: [{ c: 45.67 }, { c: 1.23 }, { c: 89.0000001 }],
       height: 500,
     };
     render(<FilterableTable {...floatProps} />);
 
-    const floatColumn = within(screen.getByRole('table'))
-      .getByText('columnC')
-      .closest('th');
-    const gridCells = screen.getByTitle('45.67').closest('.virtual-grid');
+    const floatColumn = screen.getByRole('columnheader', { name: 'c' });
+    const gridCells = screen.getAllByRole('gridcell');
 
     // Original order
-    expect(gridCells?.textContent).toEqual(
-      ['45.67', '1.23', '89.0000001'].join(''),
-    );
+    expect(gridCells[0]).toHaveTextContent('45.67');
+    expect(gridCells[1]).toHaveTextContent('1.23');
+    expect(gridCells[2]).toHaveTextContent('89.0000001');
 
     // First click to sort ascending
-    if (floatColumn) {
-      userEvent.click(floatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      ['1.23', '45.67', '89.0000001'].join(''),
-    );
+    userEvent.click(floatColumn);
+    expect(gridCells[0]).toHaveTextContent('1.23');
+    expect(gridCells[1]).toHaveTextContent('45.67');
+    expect(gridCells[2]).toHaveTextContent('89.0000001');
 
     // Second click to sort descending
-    if (floatColumn) {
-      userEvent.click(floatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      ['89.0000001', '45.67', '1.23'].join(''),
-    );
+    userEvent.click(floatColumn);
+    expect(gridCells[0]).toHaveTextContent('89.0000001');
+    expect(gridCells[1]).toHaveTextContent('45.67');
+    expect(gridCells[2]).toHaveTextContent('1.23');
 
     // Third click to clear sorting
-    if (floatColumn) {
-      userEvent.click(floatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      ['45.67', '1.23', '89.0000001'].join(''),
-    );
+    userEvent.click(floatColumn);
+    expect(gridCells[0]).toHaveTextContent('45.67');
+    expect(gridCells[1]).toHaveTextContent('1.23');
+    expect(gridCells[2]).toHaveTextContent('89.0000001');
   });
 
   it('sorts rows properly when floating numbers have mixed types', () => {
     const mixedFloatProps = {
-      orderedColumnKeys: ['columnD'],
+      orderedColumnKeys: ['d'],
       data: [
-        { columnD: 48710.92 },
-        { columnD: 145776.56 },
-        { columnD: 72212.86 },
-        { columnD: '144729.96000000002' },
-        { columnD: '26260.210000000003' },
-        { columnD: '152718.97999999998' },
-        { columnD: 28550.59 },
-        { columnD: '24078.610000000004' },
-        { columnD: '98089.08000000002' },
-        { columnD: '3439718.0300000007' },
-        { columnD: '4528047.219999993' },
+        { d: 48710.92 },
+        { d: 145776.56 },
+        { d: 72212.86 },
+        { d: '144729.96000000002' },
+        { d: '26260.210000000003' },
+        { d: '152718.97999999998' },
+        { d: 28550.59 },
+        { d: '24078.610000000004' },
+        { d: '98089.08000000002' },
+        { d: '3439718.0300000007' },
+        { d: '4528047.219999993' },
       ],
       height: 500,
     };
     render(<FilterableTable {...mixedFloatProps} />);
 
-    const mixedFloatColumn = within(screen.getByRole('table'))
-      .getByText('columnD')
-      .closest('th');
-    const gridCells = screen.getByTitle('48710.92').closest('.virtual-grid');
+    const mixedFloatColumn = screen.getByRole('columnheader', { name: 'd' });
+    const gridCells = screen.getAllByRole('gridcell');
 
     // Original order
-    expect(gridCells?.textContent).toEqual(
-      [
-        '48710.92',
-        '145776.56',
-        '72212.86',
-        '144729.96000000002',
-        '26260.210000000003',
-        '152718.97999999998',
-        '28550.59',
-        '24078.610000000004',
-        '98089.08000000002',
-        '3439718.0300000007',
-        '4528047.219999993',
-      ].join(''),
-    );
+    expect(gridCells[0]).toHaveTextContent('48710.92');
+    expect(gridCells[1]).toHaveTextContent('145776.56');
+    expect(gridCells[2]).toHaveTextContent('72212.86');
+    expect(gridCells[3]).toHaveTextContent('144729.96000000002');
+    expect(gridCells[4]).toHaveTextContent('26260.210000000003');
+    expect(gridCells[5]).toHaveTextContent('152718.97999999998');
+    expect(gridCells[6]).toHaveTextContent('28550.59');
+    expect(gridCells[7]).toHaveTextContent('24078.610000000004');
+    expect(gridCells[8]).toHaveTextContent('98089.08000000002');
+    expect(gridCells[9]).toHaveTextContent('3439718.0300000007');
+    expect(gridCells[10]).toHaveTextContent('4528047.219999993');
+
     // First click to sort ascending
-    if (mixedFloatColumn) {
-      userEvent.click(mixedFloatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '24078.610000000004',
-        '26260.210000000003',
-        '28550.59',
-        '48710.92',
-        '72212.86',
-        '98089.08000000002',
-        '144729.96000000002',
-        '145776.56',
-        '152718.97999999998',
-        '3439718.0300000007',
-        '4528047.219999993',
-      ].join(''),
-    );
+    userEvent.click(mixedFloatColumn);
+    expect(gridCells[0]).toHaveTextContent('24078.610000000004');
+    expect(gridCells[1]).toHaveTextContent('26260.210000000003');
+    expect(gridCells[2]).toHaveTextContent('28550.59');
+    expect(gridCells[3]).toHaveTextContent('48710.92');
+    expect(gridCells[4]).toHaveTextContent('72212.86');
+    expect(gridCells[5]).toHaveTextContent('98089.08000000002');
+    expect(gridCells[6]).toHaveTextContent('144729.96000000002');
+    expect(gridCells[7]).toHaveTextContent('145776.56');
+    expect(gridCells[8]).toHaveTextContent('152718.97999999998');
+    expect(gridCells[9]).toHaveTextContent('3439718.0300000007');
+    expect(gridCells[10]).toHaveTextContent('4528047.219999993');
 
     // Second click to sort descending
-    if (mixedFloatColumn) {
-      userEvent.click(mixedFloatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '4528047.219999993',
-        '3439718.0300000007',
-        '152718.97999999998',
-        '145776.56',
-        '144729.96000000002',
-        '98089.08000000002',
-        '72212.86',
-        '48710.92',
-        '28550.59',
-        '26260.210000000003',
-        '24078.610000000004',
-      ].join(''),
-    );
+    userEvent.click(mixedFloatColumn);
+    expect(gridCells[0]).toHaveTextContent('4528047.219999993');
+    expect(gridCells[1]).toHaveTextContent('3439718.0300000007');
+    expect(gridCells[2]).toHaveTextContent('152718.97999999998');
+    expect(gridCells[3]).toHaveTextContent('145776.56');
+    expect(gridCells[4]).toHaveTextContent('144729.96000000002');
+    expect(gridCells[5]).toHaveTextContent('98089.08000000002');
+    expect(gridCells[6]).toHaveTextContent('72212.86');
+    expect(gridCells[7]).toHaveTextContent('48710.92');
+    expect(gridCells[8]).toHaveTextContent('28550.59');
+    expect(gridCells[9]).toHaveTextContent('26260.210000000003');
+    expect(gridCells[10]).toHaveTextContent('24078.610000000004');
 
     // Third click to clear sorting
-    if (mixedFloatColumn) {
-      userEvent.click(mixedFloatColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '48710.92',
-        '145776.56',
-        '72212.86',
-        '144729.96000000002',
-        '26260.210000000003',
-        '152718.97999999998',
-        '28550.59',
-        '24078.610000000004',
-        '98089.08000000002',
-        '3439718.0300000007',
-        '4528047.219999993',
-      ].join(''),
-    );
+    userEvent.click(mixedFloatColumn);
+    expect(gridCells[0]).toHaveTextContent('48710.92');
+    expect(gridCells[1]).toHaveTextContent('145776.56');
+    expect(gridCells[2]).toHaveTextContent('72212.86');
+    expect(gridCells[3]).toHaveTextContent('144729.96000000002');
+    expect(gridCells[4]).toHaveTextContent('26260.210000000003');
+    expect(gridCells[5]).toHaveTextContent('152718.97999999998');
+    expect(gridCells[6]).toHaveTextContent('28550.59');
+    expect(gridCells[7]).toHaveTextContent('24078.610000000004');
+    expect(gridCells[8]).toHaveTextContent('98089.08000000002');
+    expect(gridCells[9]).toHaveTextContent('3439718.0300000007');
+    expect(gridCells[10]).toHaveTextContent('4528047.219999993');
   });
 
   it('sorts YYYY-MM-DD properly', () => {
     const dsProps = {
-      orderedColumnKeys: ['columnDS'],
+      orderedColumnKeys: ['ds'],
       data: [
-        { columnDS: '2021-01-01' },
-        { columnDS: '2022-01-01' },
-        { columnDS: '2021-01-02' },
-        { columnDS: '2021-01-03' },
-        { columnDS: '2021-12-01' },
-        { columnDS: '2021-10-01' },
-        { columnDS: '2022-01-02' },
+        { ds: '2021-01-01' },
+        { ds: '2022-01-01' },
+        { ds: '2021-01-02' },
+        { ds: '2021-01-03' },
+        { ds: '2021-12-01' },
+        { ds: '2021-10-01' },
+        { ds: '2022-01-02' },
       ],
       height: 500,
     };
     render(<FilterableTable {...dsProps} />);
 
-    const dsColumn = within(screen.getByRole('table'))
-      .getByText('columnDS')
-      .closest('th');
-    const gridCells = screen.getByTitle('2021-01-01').closest('.virtual-grid');
+    const dsColumn = screen.getByRole('columnheader', { name: 'ds' });
+    const gridCells = screen.getAllByRole('gridcell');
 
     // Original order
-    expect(gridCells?.textContent).toEqual(
-      [
-        '2021-01-01',
-        '2022-01-01',
-        '2021-01-02',
-        '2021-01-03',
-        '2021-12-01',
-        '2021-10-01',
-        '2022-01-02',
-      ].join(''),
-    );
+    expect(gridCells[0]).toHaveTextContent('2021-01-01');
+    expect(gridCells[1]).toHaveTextContent('2022-01-01');
+    expect(gridCells[2]).toHaveTextContent('2021-01-02');
+    expect(gridCells[3]).toHaveTextContent('2021-01-03');
+    expect(gridCells[4]).toHaveTextContent('2021-12-01');
+    expect(gridCells[5]).toHaveTextContent('2021-10-01');
+    expect(gridCells[6]).toHaveTextContent('2022-01-02');
 
     // First click to sort ascending
-    if (dsColumn) {
-      userEvent.click(dsColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '2021-01-01',
-        '2021-01-02',
-        '2021-01-03',
-        '2021-10-01',
-        '2021-12-01',
-        '2022-01-01',
-        '2022-01-02',
-      ].join(''),
-    );
+    userEvent.click(dsColumn);
+    expect(gridCells[0]).toHaveTextContent('2021-01-01');
+    expect(gridCells[1]).toHaveTextContent('2021-01-02');
+    expect(gridCells[2]).toHaveTextContent('2021-01-03');
+    expect(gridCells[3]).toHaveTextContent('2021-10-01');
+    expect(gridCells[4]).toHaveTextContent('2021-12-01');
+    expect(gridCells[5]).toHaveTextContent('2022-01-01');
+    expect(gridCells[6]).toHaveTextContent('2022-01-02');
 
     // Second click to sort descending
-    if (dsColumn) {
-      userEvent.click(dsColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '2022-01-02',
-        '2022-01-01',
-        '2021-12-01',
-        '2021-10-01',
-        '2021-01-03',
-        '2021-01-02',
-        '2021-01-01',
-      ].join(''),
-    );
+    userEvent.click(dsColumn);
+    expect(gridCells[0]).toHaveTextContent('2022-01-02');
+    expect(gridCells[1]).toHaveTextContent('2022-01-01');
+    expect(gridCells[2]).toHaveTextContent('2021-12-01');
+    expect(gridCells[3]).toHaveTextContent('2021-10-01');
+    expect(gridCells[4]).toHaveTextContent('2021-01-03');
+    expect(gridCells[5]).toHaveTextContent('2021-01-02');
+    expect(gridCells[6]).toHaveTextContent('2021-01-01');
 
     // Third click to clear sorting
-    if (dsColumn) {
-      userEvent.click(dsColumn);
-    }
-    expect(gridCells?.textContent).toEqual(
-      [
-        '2021-01-01',
-        '2022-01-01',
-        '2021-01-02',
-        '2021-01-03',
-        '2021-12-01',
-        '2021-10-01',
-        '2022-01-02',
-      ].join(''),
-    );
+    userEvent.click(dsColumn);
+    expect(gridCells[0]).toHaveTextContent('2021-01-01');
+    expect(gridCells[1]).toHaveTextContent('2022-01-01');
+    expect(gridCells[2]).toHaveTextContent('2021-01-02');
+    expect(gridCells[3]).toHaveTextContent('2021-01-03');
+    expect(gridCells[4]).toHaveTextContent('2021-12-01');
+    expect(gridCells[5]).toHaveTextContent('2021-10-01');
+    expect(gridCells[6]).toHaveTextContent('2022-01-02');
   });
-});
-
-test('renders bigInt value in a number format', () => {
-  expect(convertBigIntStrToNumber('123')).toBe('123');
-  expect(convertBigIntStrToNumber('some string value')).toBe(
-    'some string value',
-  );
-  expect(convertBigIntStrToNumber('{ a: 123 }')).toBe('{ a: 123 }');
-  expect(convertBigIntStrToNumber('"Not a Number"')).toBe('"Not a Number"');
-  // trim quotes for bigint string format
-  expect(convertBigIntStrToNumber('"-12345678901234567890"')).toBe(
-    '-12345678901234567890',
-  );
-  expect(convertBigIntStrToNumber('"12345678901234567890"')).toBe(
-    '12345678901234567890',
-  );
 });

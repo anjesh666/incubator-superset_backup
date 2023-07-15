@@ -85,58 +85,49 @@ const createProps = () => ({
   value: [{ key: 'hrYAZ5iBH' }],
 });
 
-test('Should render', async () => {
+test('Should render', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
-  expect(await screen.findByTestId('CollectionControl')).toBeInTheDocument();
+  expect(screen.getByTestId('CollectionControl')).toBeInTheDocument();
 });
 
-test('Should show the button with the label', async () => {
+test('Should show the button with the label', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
-  expect(
-    await screen.findByRole('button', { name: props.label }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: props.label })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: props.label })).toHaveTextContent(
     props.label,
   );
 });
 
-test('Should have add button', async () => {
+test('Should have add button', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
 
-  expect(
-    await screen.findByRole('button', { name: 'plus-large' }),
-  ).toBeInTheDocument();
   expect(props.onChange).toBeCalledTimes(0);
   userEvent.click(screen.getByRole('button', { name: 'plus-large' }));
   expect(props.onChange).toBeCalledWith([{ key: 'hrYAZ5iBH' }, undefined]);
 });
 
-test('Should have remove button', async () => {
+test('Should have remove button', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
 
-  expect(
-    await screen.findByRole('button', { name: 'remove-item' }),
-  ).toBeInTheDocument();
   expect(props.onChange).toBeCalledTimes(0);
   userEvent.click(screen.getByRole('button', { name: 'remove-item' }));
   expect(props.onChange).toBeCalledWith([]);
 });
 
-test('Should have SortableDragger icon', async () => {
+test('Should have SortableDragger icon', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
-  expect(await screen.findByLabelText('drag')).toBeVisible();
+  expect(screen.getByLabelText('drag')).toBeVisible();
 });
 
-test('Should call Control component', async () => {
+test('Should call Control component', () => {
   const props = createProps();
   render(<CollectionControl {...props} />);
 
-  expect(await screen.findByTestId('TestControl')).toBeInTheDocument();
   expect(props.onChange).toBeCalledTimes(0);
   userEvent.click(screen.getByTestId('TestControl'));
   expect(props.onChange).toBeCalledWith([{ key: 'hrYAZ5iBH' }]);

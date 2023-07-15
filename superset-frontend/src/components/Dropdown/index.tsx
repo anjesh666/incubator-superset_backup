@@ -20,7 +20,6 @@ import React, { RefObject } from 'react';
 import { AntdDropdown } from 'src/components';
 import { DropDownProps } from 'antd/lib/dropdown';
 import { styled } from '@superset-ui/core';
-import Icons from 'src/components/Icons';
 
 const MenuDots = styled.div`
   width: ${({ theme }) => theme.gridUnit * 0.75}px;
@@ -67,35 +66,14 @@ const MenuDotsWrapper = styled.div`
   padding-left: ${({ theme }) => theme.gridUnit}px;
 `;
 
-export enum IconOrientation {
-  VERTICAL = 'vertical',
-  HORIZONTAL = 'horizontal',
-}
-export interface DropdownProps extends DropDownProps {
+export interface DropdownProps {
   overlay: React.ReactElement;
-  iconOrientation?: IconOrientation;
 }
 
-const RenderIcon = (
-  iconOrientation: IconOrientation = IconOrientation.VERTICAL,
-) => {
-  const component =
-    iconOrientation === IconOrientation.HORIZONTAL ? (
-      <Icons.MoreHoriz iconSize="xl" />
-    ) : (
-      <MenuDots />
-    );
-  return component;
-};
-
-export const Dropdown = ({
-  overlay,
-  iconOrientation = IconOrientation.VERTICAL,
-  ...rest
-}: DropdownProps) => (
+export const Dropdown = ({ overlay, ...rest }: DropdownProps) => (
   <AntdDropdown overlay={overlay} {...rest}>
     <MenuDotsWrapper data-test="dropdown-trigger">
-      {RenderIcon(iconOrientation)}
+      <MenuDots />
     </MenuDotsWrapper>
   </AntdDropdown>
 );

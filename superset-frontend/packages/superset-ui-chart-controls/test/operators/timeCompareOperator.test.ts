@@ -90,8 +90,8 @@ test('should skip CompareOperator', () => {
 });
 
 test('should generate difference/percentage/ratio CompareOperator', () => {
-  const comparisonTypes = ['difference', 'percentage', 'ratio'];
-  comparisonTypes.forEach(cType => {
+  const comparisionTypes = ['difference', 'percentage', 'ratio'];
+  comparisionTypes.forEach(cType => {
     expect(
       timeCompareOperator(
         {

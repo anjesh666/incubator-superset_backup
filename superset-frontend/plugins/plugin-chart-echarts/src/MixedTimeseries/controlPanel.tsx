@@ -17,13 +17,19 @@
  * under the License.
  */
 import React from 'react';
-import { ensureIsArray, hasGenericChartAxes, t } from '@superset-ui/core';
+import {
+  ensureIsArray,
+  FeatureFlag,
+  isFeatureEnabled,
+  t,
+} from '@superset-ui/core';
 import { cloneDeep } from 'lodash';
 import {
   ControlPanelConfig,
   ControlPanelSectionConfig,
   ControlSetRow,
   CustomControlItem,
+  emitFilterControl,
   getStandardizedControls,
   sections,
   sharedControls,
@@ -78,6 +84,14 @@ function createQuerySection(
           config: sharedControls.adhoc_filters,
         },
       ],
+      emitFilterControl.length > 0
+        ? [
+            {
+              ...emitFilterControl[0],
+              name: `emit_filter${controlSuffix}`,
+            },
+          ]
+        : [],
       [
         {
           name: `limit${controlSuffix}`,
@@ -138,13 +152,13 @@ function createCustomizeSection(
           renderTrigger: true,
           default: seriesType,
           choices: [
-            [EchartsTimeseriesSeriesType.Line, t('Line')],
-            [EchartsTimeseriesSeriesType.Scatter, t('Scatter')],
-            [EchartsTimeseriesSeriesType.Smooth, t('Smooth Line')],
-            [EchartsTimeseriesSeriesType.Bar, t('Bar')],
-            [EchartsTimeseriesSeriesType.Start, t('Step - start')],
-            [EchartsTimeseriesSeriesType.Middle, t('Step - middle')],
-            [EchartsTimeseriesSeriesType.End, t('Step - end')],
+            [EchartsTimeseriesSeriesType.Line, 'Line'],
+            [EchartsTimeseriesSeriesType.Scatter, 'Scatter'],
+            [EchartsTimeseriesSeriesType.Smooth, 'Smooth Line'],
+            [EchartsTimeseriesSeriesType.Bar, 'Bar'],
+            [EchartsTimeseriesSeriesType.Start, 'Step - start'],
+            [EchartsTimeseriesSeriesType.Middle, 'Step - middle'],
+            [EchartsTimeseriesSeriesType.End, 'Step - end'],
           ],
           description: t('Series chart type (line, bar etc)'),
         },
@@ -277,12 +291,12 @@ function createAdvancedAnalyticsSection(
 
 const config: ControlPanelConfig = {
   controlPanelSections: [
-    sections.genericTime,
-    hasGenericChartAxes
+    sections.legacyTimeseriesTime,
+    isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
       ? {
           label: t('Shared query fields'),
           expanded: true,
-          controlSetRows: [['x_axis'], ['time_grain_sqla']],
+          controlSetRows: [['x_axis']],
         }
       : null,
     createQuerySection(t('Query A'), ''),
@@ -367,11 +381,11 @@ const config: ControlPanelConfig = {
             name: 'y_axis_bounds',
             config: {
               type: 'BoundsControl',
-              label: t('Primary y-axis Bounds'),
+              label: t('Y Axis Bounds'),
               renderTrigger: true,
               default: yAxisBounds,
               description: t(
-                'Bounds for the primary Y-axis. When left empty, the bounds are ' +
+                'Bounds for the Y-axis. When left empty, the bounds are ' +
                   'dynamically defined based on the min/max of the data. Note that ' +
                   "this feature will only expand the axis range. It won't " +
                   "narrow the data's extent.",
@@ -397,23 +411,6 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
               default: logAxis,
               description: t('Logarithmic scale on primary y-axis'),
-            },
-          },
-        ],
-        [
-          {
-            name: 'y_axis_bounds_secondary',
-            config: {
-              type: 'BoundsControl',
-              label: t('Secondary y-axis Bounds'),
-              renderTrigger: true,
-              default: yAxisBounds,
-              description: t(
-                `Bounds for the secondary Y-axis. Only works when Independent Y-axis
-                bounds are enabled. When left empty, the bounds are dynamically defined
-                based on the min/max of the data. Note that this feature will only expand
-                the axis range. It won't narrow the data's extent.`,
-              ),
             },
           },
         ],

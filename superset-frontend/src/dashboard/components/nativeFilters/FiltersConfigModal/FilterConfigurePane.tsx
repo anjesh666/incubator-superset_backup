@@ -22,7 +22,7 @@ import FilterTitlePane from './FilterTitlePane';
 import { FilterRemoval } from './types';
 
 interface Props {
-  children?: React.ReactNode;
+  children: (filterId: string) => React.ReactNode;
   getFilterTitle: (filterId: string) => string;
   onChange: (activeKey: string) => void;
   onAdd: (type: NativeFilterType) => void;
@@ -46,8 +46,7 @@ const ContentHolder = styled.div`
 `;
 
 const TitlesContainer = styled.div`
-  min-width: 300px;
-  max-width: 300px;
+  width: 270px;
   border-right: 1px solid ${({ theme }) => theme.colors.grayscale.light2};
 `;
 
@@ -63,24 +62,40 @@ const FilterConfigurePane: React.FC<Props> = ({
   currentFilterId,
   filters,
   removedFilters,
-}) => (
-  <Container>
-    <TitlesContainer>
-      <FilterTitlePane
-        currentFilterId={currentFilterId}
-        filters={filters}
-        removedFilters={removedFilters}
-        erroredFilters={erroredFilters}
-        getFilterTitle={getFilterTitle}
-        onChange={onChange}
-        onAdd={(type: NativeFilterType) => onAdd(type)}
-        onRearrange={onRearrange}
-        onRemove={(id: string) => onRemove(id)}
-        restoreFilter={restoreFilter}
-      />
-    </TitlesContainer>
-    <ContentHolder>{children}</ContentHolder>
-  </Container>
-);
+}) => {
+  const active = filters.filter(id => id === currentFilterId)[0];
+  return (
+    <Container>
+      <TitlesContainer>
+        <FilterTitlePane
+          currentFilterId={currentFilterId}
+          filters={filters}
+          removedFilters={removedFilters}
+          erroredFilters={erroredFilters}
+          getFilterTitle={getFilterTitle}
+          onChange={onChange}
+          onAdd={(type: NativeFilterType) => onAdd(type)}
+          onRearrange={onRearrange}
+          onRemove={(id: string) => onRemove(id)}
+          restoreFilter={restoreFilter}
+        />
+      </TitlesContainer>
+      <ContentHolder>
+        {filters.map(id => (
+          <div
+            key={id}
+            style={{
+              height: '100%',
+              overflowY: 'auto',
+              display: id === active ? '' : 'none',
+            }}
+          >
+            {children(id)}
+          </div>
+        ))}
+      </ContentHolder>
+    </Container>
+  );
+};
 
 export default FilterConfigurePane;

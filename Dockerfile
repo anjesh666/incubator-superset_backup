@@ -16,37 +16,62 @@
 #
 
 ######################################################################
+# PY stage that simply does a pip install on our requirements
+######################################################################
+ARG PY_VER=3.8.13
+FROM python:${PY_VER} AS superset-py
+
+RUN mkdir /app \
+        && apt-get update -y \
+        && apt-get install -y --no-install-recommends \
+            build-essential \
+            default-libmysqlclient-dev \
+            libpq-dev \
+            libsasl2-dev \
+            libecpg-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+# First, we just wanna install requirements, which will allow us to utilize the cache
+# in order to only build if and only if requirements change
+COPY ./requirements/*.txt  /app/requirements/
+COPY setup.py MANIFEST.in README.md /app/
+COPY superset-frontend/package.json /app/superset-frontend/
+RUN cd /app \
+    && mkdir -p superset/static \
+    && touch superset/static/version_info.json \
+    && pip install --no-cache -r requirements/local.txt
+
+
+######################################################################
 # Node stage to deal with static asset construction
 ######################################################################
-ARG PY_VER=3.9.16-slim
+FROM node:16 AS superset-node
 
-# if BUILDPLATFORM is null, set it to 'amd64' (or leave as is otherwise).
-ARG BUILDPLATFORM=${BUILDPLATFORM:-amd64}
-FROM --platform=${BUILDPLATFORM} node:16-slim AS superset-node
+ARG NPM_VER=7
+RUN npm install -g npm@${NPM_VER}
 
 ARG NPM_BUILD_CMD="build"
 ENV BUILD_CMD=${NPM_BUILD_CMD}
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # NPM ci first, as to NOT invalidate previous steps except for when package.json changes
 RUN mkdir -p /app/superset-frontend
-
+RUN mkdir -p /app/superset/assets
 COPY ./docker/frontend-mem-nag.sh /
-RUN /frontend-mem-nag.sh
-
-WORKDIR /app/superset-frontend/
-
-COPY superset-frontend/package*.json ./
-RUN npm ci
-
-COPY ./superset-frontend .
+COPY ./superset-frontend /app/superset-frontend
+RUN /frontend-mem-nag.sh \
+        && cd /app/superset-frontend \
+        && npm ci
 
 # This seems to be the most expensive step
-RUN npm run ${BUILD_CMD}
+RUN cd /app/superset-frontend \
+        && npm run ${BUILD_CMD} \
+        && rm -rf node_modules
+
 
 ######################################################################
 # Final lean image...
 ######################################################################
+ARG PY_VER=3.8.13
 FROM python:${PY_VER} AS lean
 
 ENV LANG=C.UTF-8 \
@@ -58,40 +83,35 @@ ENV LANG=C.UTF-8 \
     SUPERSET_PORT=8088
 
 RUN mkdir -p ${PYTHONPATH} \
-    && useradd --user-group -d ${SUPERSET_HOME} -m --no-log-init --shell /bin/bash superset \
-    && apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        curl \
-        default-libmysqlclient-dev \
-        libsasl2-dev \
-        libsasl2-modules-gssapi-mit \
-        libpq-dev \
-        libecpg-dev \
-    && rm -rf /var/lib/apt/lists/*
+        && useradd --user-group -d ${SUPERSET_HOME} -m --no-log-init --shell /bin/bash superset \
+        && apt-get update -y \
+        && apt-get install -y --no-install-recommends \
+            build-essential \
+            default-libmysqlclient-dev \
+            libsasl2-modules-gssapi-mit \
+            libpq-dev \
+            libecpg-dev \
+        && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-COPY --chown=superset:superset ./requirements/*.txt  requirements/
-COPY --chown=superset:superset setup.py MANIFEST.in README.md ./
-
-# setup.py uses the version information in package.json
-COPY --chown=superset:superset superset-frontend/package.json superset-frontend/
-
-RUN mkdir -p superset/static \
-    && touch superset/static/version_info.json \
-    && pip install --no-cache-dir -r requirements/local.txt
-
-COPY --chown=superset:superset --from=superset-node /app/superset/static/assets superset/static/assets
+COPY --from=superset-py /usr/local/lib/python3.8/site-packages/ /usr/local/lib/python3.8/site-packages/
+# Copying site-packages doesn't move the CLIs, so let's copy them one by one
+COPY --from=superset-py /usr/local/bin/gunicorn /usr/local/bin/celery /usr/local/bin/flask /usr/bin/
+COPY --from=superset-node /app/superset/static/assets /app/superset/static/assets
+COPY --from=superset-node /app/superset-frontend /app/superset-frontend
 
 ## Lastly, let's install superset itself
-COPY --chown=superset:superset superset superset
-RUN chown -R superset:superset ./* \
-    && pip install --no-cache-dir -e . \
-    && flask fab babel-compile --target superset/translations
+COPY superset /app/superset
+COPY setup.py MANIFEST.in README.md /app/
+RUN cd /app \
+        && chown -R superset:superset * \
+        && pip install -e . \
+        && flask fab babel-compile --target superset/translations
 
 COPY ./docker/run-server.sh /usr/bin/
+
 RUN chmod a+x /usr/bin/run-server.sh
+
+WORKDIR /app
 
 USER superset
 
@@ -99,28 +119,21 @@ HEALTHCHECK CMD curl -f "http://localhost:$SUPERSET_PORT/health"
 
 EXPOSE ${SUPERSET_PORT}
 
-CMD ["/usr/bin/run-server.sh"]
+CMD /usr/bin/run-server.sh
 
 ######################################################################
 # Dev image...
 ######################################################################
 FROM lean AS dev
-ARG GECKODRIVER_VERSION=v0.32.0
-ARG FIREFOX_VERSION=106.0.3
+ARG GECKODRIVER_VERSION=v0.28.0
+ARG FIREFOX_VERSION=88.0
 
 COPY ./requirements/*.txt ./docker/requirements-*.txt/ /app/requirements/
 
 USER root
 
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-        libnss3 \
-        libdbus-glib-1-2 \
-        libgtk-3-0 \
-        libx11-xcb1 \
-        libasound2 \
-        libxtst6 \
-        wget
+    && apt-get install -y --no-install-recommends libnss3 libdbus-glib-1-2 libgtk-3-0 libx11-xcb1
 
 # Install GeckoDriver WebDriver
 RUN wget https://github.com/mozilla/geckodriver/releases/download/${GECKODRIVER_VERSION}/geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz -O /tmp/geckodriver.tar.gz && \

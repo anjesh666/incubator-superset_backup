@@ -18,6 +18,7 @@
  */
 import React from 'react';
 import { shallow } from 'enzyme';
+import { supersetTheme } from '@superset-ui/core';
 import { Provider } from 'react-redux';
 import { Store } from 'redux';
 import * as SupersetUI from '@superset-ui/core';
@@ -35,6 +36,8 @@ import {
 import { sliceId } from 'spec/fixtures/mockChartQueries';
 import { dashboardFilters } from 'spec/fixtures/mockDashboardFilters';
 import { dashboardWithFilter } from 'spec/fixtures/mockDashboardLayout';
+import Icons from 'src/components/Icons';
+import { FeatureFlag } from 'src/featureFlags';
 
 const defaultStore = getMockStoreWithFilters();
 function setup(store: Store = defaultStore) {
@@ -58,9 +61,7 @@ describe('FiltersBadge', () => {
     // shallow rendering in enzyme doesn't propagate contexts correctly,
     // so we have to mock the hook.
     // See https://medium.com/7shifts-engineering-blog/testing-usecontext-react-hook-with-enzyme-shallow-da062140fc83
-    jest
-      .spyOn(SupersetUI, 'useTheme')
-      .mockImplementation(() => SupersetUI.supersetTheme);
+    jest.spyOn(SupersetUI, 'useTheme').mockImplementation(() => supersetTheme);
   });
 
   describe('for dashboard filters', () => {
@@ -105,10 +106,40 @@ describe('FiltersBadge', () => {
       store.dispatch({ type: CHART_RENDERING_SUCCEEDED, key: sliceId });
       const wrapper = setup(store);
       expect(wrapper.find('DetailsPanelPopover')).toExist();
-      expect(
-        wrapper.find('[data-test="applied-filter-count"] .current'),
-      ).toHaveText('1');
+      expect(wrapper.find('[data-test="applied-filter-count"]')).toHaveText(
+        '1',
+      );
       expect(wrapper.find('WarningFilled')).not.toExist();
+    });
+
+    it("shows a warning when there's a rejected filter", () => {
+      const store = getMockStoreWithFilters();
+      // start with basic dashboard state, dispatch an event to simulate query completion
+      store.dispatch({
+        type: CHART_UPDATE_SUCCEEDED,
+        key: sliceId,
+        queriesResponse: [
+          {
+            status: 'success',
+            applied_filters: [],
+            rejected_filters: [
+              { column: 'region', reason: 'not_in_datasource' },
+            ],
+          },
+        ],
+        dashboardFilters,
+      });
+      store.dispatch({ type: CHART_RENDERING_SUCCEEDED, key: sliceId });
+      const wrapper = setup(store);
+      expect(wrapper.find('DetailsPanelPopover')).toExist();
+      expect(wrapper.find('[data-test="applied-filter-count"]')).toHaveText(
+        '0',
+      );
+      expect(
+        wrapper.find('[data-test="incompatible-filter-count"]'),
+      ).toHaveText('1');
+      // to look at the shape of the wrapper use:
+      expect(wrapper.find(Icons.AlertSolid)).toExist();
     });
   });
 
@@ -135,7 +166,7 @@ describe('FiltersBadge', () => {
     it('shows the indicator when filters have been applied', () => {
       // @ts-ignore
       global.featureFlags = {
-        [SupersetUI.FeatureFlag.DASHBOARD_NATIVE_FILTERS]: true,
+        [FeatureFlag.DASHBOARD_NATIVE_FILTERS]: true,
       };
       const store = getMockStoreWithNativeFilters();
       // start with basic dashboard state, dispatch an event to simulate query completion
@@ -153,10 +184,42 @@ describe('FiltersBadge', () => {
       store.dispatch({ type: CHART_RENDERING_SUCCEEDED, key: sliceId });
       const wrapper = setup(store);
       expect(wrapper.find('DetailsPanelPopover')).toExist();
-      expect(
-        wrapper.find('[data-test="applied-filter-count"] .current'),
-      ).toHaveText('1');
+      expect(wrapper.find('[data-test="applied-filter-count"]')).toHaveText(
+        '1',
+      );
       expect(wrapper.find('WarningFilled')).not.toExist();
+    });
+
+    it("shows a warning when there's a rejected filter", () => {
+      // @ts-ignore
+      global.featureFlags = {
+        [FeatureFlag.DASHBOARD_NATIVE_FILTERS]: true,
+      };
+      const store = getMockStoreWithNativeFilters();
+      // start with basic dashboard state, dispatch an event to simulate query completion
+      store.dispatch({
+        type: CHART_UPDATE_SUCCEEDED,
+        key: sliceId,
+        queriesResponse: [
+          {
+            status: 'success',
+            applied_filters: [],
+            rejected_filters: [
+              { column: 'region', reason: 'not_in_datasource' },
+            ],
+          },
+        ],
+      });
+      store.dispatch({ type: CHART_RENDERING_SUCCEEDED, key: sliceId });
+      const wrapper = setup(store);
+      expect(wrapper.find('DetailsPanelPopover')).toExist();
+      expect(wrapper.find('[data-test="applied-filter-count"]')).toHaveText(
+        '0',
+      );
+      expect(
+        wrapper.find('[data-test="incompatible-filter-count"]'),
+      ).toHaveText('1');
+      expect(wrapper.find(Icons.AlertSolid)).toExist();
     });
   });
 });

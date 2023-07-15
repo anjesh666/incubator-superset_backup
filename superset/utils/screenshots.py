@@ -14,8 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from __future__ import annotations
-
 import logging
 from io import BytesIO
 from typing import Optional, TYPE_CHECKING, Union
@@ -23,13 +21,7 @@ from typing import Optional, TYPE_CHECKING, Union
 from flask import current_app
 
 from superset.utils.hashing import md5_sha_from_dict
-from superset.utils.urls import modify_url_query
-from superset.utils.webdriver import (
-    ChartStandaloneMode,
-    DashboardStandaloneMode,
-    WebDriverProxy,
-    WindowSize,
-)
+from superset.utils.webdriver import WebDriverProxy, WindowSize
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +68,7 @@ class BaseScreenshot:
         return md5_sha_from_dict(args)
 
     def get_screenshot(
-        self, user: User, window_size: Optional[WindowSize] = None
+        self, user: "User", window_size: Optional[WindowSize] = None
     ) -> Optional[bytes]:
         driver = self.driver(window_size)
         self.screenshot = driver.get_screenshot(self.url, self.element, user)
@@ -84,8 +76,8 @@ class BaseScreenshot:
 
     def get(
         self,
-        user: User = None,
-        cache: Cache = None,
+        user: "User" = None,
+        cache: "Cache" = None,
         thumb_size: Optional[WindowSize] = None,
     ) -> Optional[BytesIO]:
         """
@@ -111,7 +103,7 @@ class BaseScreenshot:
 
     def get_from_cache(
         self,
-        cache: Cache,
+        cache: "Cache",
         window_size: Optional[WindowSize] = None,
         thumb_size: Optional[WindowSize] = None,
     ) -> Optional[BytesIO]:
@@ -119,19 +111,20 @@ class BaseScreenshot:
         return self.get_from_cache_key(cache, cache_key)
 
     @staticmethod
-    def get_from_cache_key(cache: Cache, cache_key: str) -> Optional[BytesIO]:
+    def get_from_cache_key(cache: "Cache", cache_key: str) -> Optional[BytesIO]:
         logger.info("Attempting to get from cache: %s", cache_key)
-        if payload := cache.get(cache_key):
+        payload = cache.get(cache_key)
+        if payload:
             return BytesIO(payload)
         logger.info("Failed at getting from cache: %s", cache_key)
         return None
 
     def compute_and_cache(  # pylint: disable=too-many-arguments
         self,
-        user: User = None,
+        user: "User" = None,
         window_size: Optional[WindowSize] = None,
         thumb_size: Optional[WindowSize] = None,
-        cache: Cache = None,
+        cache: "Cache" = None,
         force: bool = True,
     ) -> Optional[bytes]:
         """
@@ -210,11 +203,6 @@ class ChartScreenshot(BaseScreenshot):
         window_size: Optional[WindowSize] = None,
         thumb_size: Optional[WindowSize] = None,
     ):
-        # Chart reports are in standalone="true" mode
-        url = modify_url_query(
-            url,
-            standalone=ChartStandaloneMode.HIDE_NAV.value,
-        )
         super().__init__(url, digest)
         self.window_size = window_size or (800, 600)
         self.thumb_size = thumb_size or (800, 600)
@@ -222,7 +210,7 @@ class ChartScreenshot(BaseScreenshot):
 
 class DashboardScreenshot(BaseScreenshot):
     thumbnail_type: str = "dashboard"
-    element: str = "standalone"
+    element: str = "grid-container"
 
     def __init__(
         self,
@@ -231,13 +219,6 @@ class DashboardScreenshot(BaseScreenshot):
         window_size: Optional[WindowSize] = None,
         thumb_size: Optional[WindowSize] = None,
     ):
-        # per the element above, dashboard screenshots
-        # should always capture in standalone
-        url = modify_url_query(
-            url,
-            standalone=DashboardStandaloneMode.REPORT.value,
-        )
-
         super().__init__(url, digest)
         self.window_size = window_size or (1600, 1200)
         self.thumb_size = thumb_size or (800, 600)

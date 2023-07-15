@@ -46,6 +46,7 @@ class DeleteExpiredKeyValueCommand(BaseCommand):
             self.delete_expired()
         except SQLAlchemyError as ex:
             db.session.rollback()
+            logger.exception("Error running delete command")
             raise KeyValueDeleteFailedError() from ex
 
     def validate(self) -> None:

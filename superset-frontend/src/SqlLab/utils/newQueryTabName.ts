@@ -31,10 +31,10 @@ export const newQueryTabName = (
 
   if (queryEditors.length > 0) {
     const mappedUntitled = queryEditors.filter(qe =>
-      qe.name?.match(untitledQueryRegex),
+      qe.title.match(untitledQueryRegex),
     );
     const untitledQueryNumbers = mappedUntitled.map(
-      qe => +qe.name.replace(untitledQuery, ''),
+      qe => +qe.title.replace(untitledQuery, ''),
     );
     if (untitledQueryNumbers.length > 0) {
       // When there are query tabs open, and at least one is called "Untitled Query #"

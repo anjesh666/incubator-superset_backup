@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 # type: ignore
-import logging
 import math
 from copy import copy
 from datetime import timedelta
@@ -24,12 +23,6 @@ from superset.config import *
 from tests.integration_tests.superset_test_custom_template_processors import (
     CustomPrestoTemplateProcessor,
 )
-
-logging.getLogger("flask_appbuilder.baseviews").setLevel(logging.WARNING)
-logging.getLogger("flask_appbuilder.base").setLevel(logging.WARNING)
-logging.getLogger("flask_appbuilder.api").setLevel(logging.WARNING)
-logging.getLogger("flask_appbuilder.security.sqla.manager").setLevel(logging.WARNING)
-logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.WARNING)
 
 AUTH_USER_REGISTRATION_ROLE = "alpha"
 SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(
@@ -61,7 +54,7 @@ PRESTO_POLL_INTERVAL = 0.1
 HIVE_POLL_INTERVAL = 0.1
 
 SQL_MAX_ROW = 10000
-SQLLAB_CTAS_NO_LIMIT = True  # SQL_MAX_ROW will not take effect for the CTA queries
+SQLLAB_CTAS_NO_LIMIT = True  # SQL_MAX_ROW will not take affect for the CTA queries
 FEATURE_FLAGS = {
     **FEATURE_FLAGS,
     "foo": "bar",
@@ -70,12 +63,7 @@ FEATURE_FLAGS = {
     "ENABLE_TEMPLATE_PROCESSING": True,
     "ALERT_REPORTS": True,
     "DASHBOARD_NATIVE_FILTERS": True,
-    "DRILL_TO_DETAIL": True,
-    "DRILL_BY": True,
-    "HORIZONTAL_FILTER_BAR": True,
 }
-
-WEBDRIVER_BASEURL = "http://0.0.0.0:8081/"
 
 
 def GET_FEATURE_FLAGS_FUNC(ff):

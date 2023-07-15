@@ -30,13 +30,11 @@ function setTooltipContent(o) {
   return (
     <div className="deckgl-tooltip">
       <TooltipRow
-        // eslint-disable-next-line prefer-template
-        label={t('Longitude and Latitude') + ': '}
+        label={`${t('Longitude and Latitude')}: `}
         value={`${o.coordinate[0]}, ${o.coordinate[1]}`}
       />
       <TooltipRow
-        // eslint-disable-next-line prefer-template
-        label={t('Height') + ': '}
+        label={`${t('Height')}: `}
         value={`${o.object.elevationValue}`}
       />
     </div>

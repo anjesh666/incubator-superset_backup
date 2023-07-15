@@ -18,6 +18,7 @@
  */
 import {
   CategoricalColorNamespace,
+  DataRecordValue,
   getColumnLabel,
   getMetricLabel,
   getNumberFormatter,
@@ -43,10 +44,8 @@ import {
   getLegendProps,
   sanitizeHtml,
 } from '../utils/series';
-import { defaultGrid } from '../defaults';
+import { defaultGrid, defaultTooltip } from '../defaults';
 import { convertInteger } from '../utils/convertInteger';
-import { getDefaultTooltip } from '../utils/tooltip';
-import { Refs } from '../types';
 
 const percentFormatter = getNumberFormatter(NumberFormats.PERCENT_2_POINT);
 
@@ -135,17 +134,8 @@ function getTotalValuePadding({
 export default function transformProps(
   chartProps: EchartsPieChartProps,
 ): PieChartTransformedProps {
-  const {
-    formData,
-    height,
-    hooks,
-    filterState,
-    queriesData,
-    width,
-    theme,
-    inContextMenu,
-    emitCrossFilters,
-  } = chartProps;
+  const { formData, height, hooks, filterState, queriesData, width, theme } =
+    chartProps;
   const { data = [] } = queriesData[0];
   const coltypeMapping = getColtypesMapping(queriesData[0]);
 
@@ -167,6 +157,7 @@ export default function transformProps(
     showLabels,
     showLegend,
     showLabelsThreshold,
+    emitFilter,
     sliceId,
     showTotal,
   }: EchartsPieFormData = {
@@ -174,7 +165,6 @@ export default function transformProps(
     ...DEFAULT_PIE_FORM_DATA,
     ...formData,
   };
-  const refs: Refs = {};
   const metricLabel = getMetricLabel(metric);
   const groupbyLabels = groupby.map(getColumnLabel);
   const minShowLabelAngle = (showLabelsThreshold || 0) * 3.6;
@@ -187,20 +177,23 @@ export default function transformProps(
       timeFormatter: getTimeFormatter(dateFormat),
     }),
   );
-  const labelMap = data.reduce((acc: Record<string, string[]>, datum) => {
-    const label = extractGroupbyLabel({
-      datum,
-      groupby: groupbyLabels,
-      coltypeMapping,
-      timeFormatter: getTimeFormatter(dateFormat),
-    });
-    return {
-      ...acc,
-      [label]: groupbyLabels.map(col => datum[col] as string),
-    };
-  }, {});
+  const labelMap = data.reduce(
+    (acc: Record<string, DataRecordValue[]>, datum) => {
+      const label = extractGroupbyLabel({
+        datum,
+        groupby: groupbyLabels,
+        coltypeMapping,
+        timeFormatter: getTimeFormatter(dateFormat),
+      });
+      return {
+        ...acc,
+        [label]: groupbyLabels.map(col => datum[col]),
+      };
+    },
+    {},
+  );
 
-  const { setDataMask = () => {}, onContextMenu } = hooks;
+  const { setDataMask = () => {} } = hooks;
 
   const colorFn = CategoricalColorNamespace.getScale(colorScheme as string);
   const numberFormatter = getNumberFormatter(numberFormat);
@@ -303,8 +296,7 @@ export default function transformProps(
       ...defaultGrid,
     },
     tooltip: {
-      ...getDefaultTooltip(refs),
-      show: !inContextMenu,
+      ...defaultTooltip,
       trigger: 'item',
       formatter: (params: any) =>
         formatPieLabel({
@@ -315,7 +307,7 @@ export default function transformProps(
         }),
     },
     legend: {
-      ...getLegendProps(legendType, legendOrientation, showLegend, theme),
+      ...getLegendProps(legendType, legendOrientation, showLegend),
       data: keys,
     },
     graphic: showTotal
@@ -339,12 +331,9 @@ export default function transformProps(
     height,
     echartOptions,
     setDataMask,
+    emitFilter,
     labelMap,
     groupby,
     selectedValues,
-    onContextMenu,
-    refs,
-    emitCrossFilters,
-    coltypeMapping,
   };
 }

@@ -66,7 +66,7 @@ def permalink_salt() -> Iterator[str]:
 
 
 def test_post(
-    dashboard_id: int, permalink_salt: str, test_client, login_as_admin
+    test_client, login_as_admin, dashboard_id: int, permalink_salt: str
 ) -> None:
     resp = test_client.post(f"api/v1/dashboard/{dashboard_id}/permalink", json=STATE)
     assert resp.status_code == 201
@@ -87,28 +87,30 @@ def test_post(
     db.session.commit()
 
 
-def test_post_access_denied(test_client, login_as, dashboard_id: int):
-    login_as("gamma")
+@patch("superset.security.SupersetSecurityManager.raise_for_dashboard_access")
+def test_post_access_denied(
+    mock_raise_for_dashboard_access, test_client, login_as_admin, dashboard_id: int
+):
+    mock_raise_for_dashboard_access.side_effect = DashboardAccessDeniedError()
     resp = test_client.post(f"api/v1/dashboard/{dashboard_id}/permalink", json=STATE)
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
-def test_post_invalid_schema(dashboard_id: int, test_client, login_as_admin):
+def test_post_invalid_schema(test_client, login_as_admin, dashboard_id: int):
     resp = test_client.post(
         f"api/v1/dashboard/{dashboard_id}/permalink", json={"foo": "bar"}
     )
     assert resp.status_code == 400
 
 
-def test_get(dashboard_id: int, permalink_salt: str, test_client, login_as_admin):
+def test_get(test_client, login_as_admin, dashboard_id: int, permalink_salt: str):
     key = test_client.post(
         f"api/v1/dashboard/{dashboard_id}/permalink", json=STATE
     ).json["key"]
     resp = test_client.get(f"api/v1/dashboard/permalink/{key}")
     assert resp.status_code == 200
     result = resp.json
-    dashboard_uuid = result["dashboardId"]
-    assert Dashboard.get(dashboard_uuid).id == dashboard_id
+    assert result["dashboardId"] == str(dashboard_id)
     assert result["state"] == STATE
     id_ = decode_permalink_id(key, permalink_salt)
     db.session.query(KeyValueEntry).filter_by(id=id_).delete()

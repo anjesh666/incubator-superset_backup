@@ -40,8 +40,6 @@ function handleHover(props, monitor, Component) {
     return;
   }
 
-  Component?.props?.onHover();
-
   Component.setState(() => ({
     dropIndicator: dropPosition,
   }));

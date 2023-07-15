@@ -26,9 +26,9 @@ class DebouncedMessageQueue {
   }) {
     this.queue = [];
     this.sizeThreshold = sizeThreshold;
-    this.delayThreshold = delayThreshold;
+    this.delayThrehold = delayThreshold;
 
-    this.trigger = debounce(this.trigger.bind(this), this.delayThreshold);
+    this.trigger = debounce(this.trigger.bind(this), this.delayThrehold);
     this.callback = callback;
   }
 

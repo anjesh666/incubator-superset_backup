@@ -14,10 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from __future__ import annotations
-
 import logging
-from functools import lru_cache
+from contextlib import closing
 from typing import (
     Any,
     Callable,
@@ -32,6 +30,7 @@ from typing import (
 )
 from uuid import UUID
 
+import sqlparse
 from flask_babel import lazy_gettext as _
 from sqlalchemy.engine.url import URL as SqlaURL
 from sqlalchemy.exc import NoSuchTableError
@@ -40,7 +39,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import ObjectDeletedError
 from sqlalchemy.sql.type_api import TypeEngine
 
-from superset.constants import LRU_CACHE_MAX_SIZE
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.exceptions import (
     SupersetGenericDBErrorException,
@@ -48,8 +46,9 @@ from superset.exceptions import (
 )
 from superset.models.core import Database
 from superset.result_set import SupersetResultSet
-from superset.sql_parse import ParsedQuery
+from superset.sql_parse import has_table_query, insert_rls, ParsedQuery
 from superset.superset_typing import ResultSetColumnType
+from superset.utils.memoized import memoized
 
 if TYPE_CHECKING:
     from superset.connectors.sqla.models import SqlaTable
@@ -103,7 +102,7 @@ def get_physical_table_metadata(
     return cols
 
 
-def get_virtual_table_metadata(dataset: SqlaTable) -> List[ResultSetColumnType]:
+def get_virtual_table_metadata(dataset: "SqlaTable") -> List[ResultSetColumnType]:
     """Use SQLparser to get virtual dataset metadata"""
     if not dataset.sql:
         raise SupersetGenericDBErrorException(
@@ -111,6 +110,7 @@ def get_virtual_table_metadata(dataset: SqlaTable) -> List[ResultSetColumnType]:
         )
 
     db_engine_spec = dataset.database.db_engine_spec
+    engine = dataset.database.get_sqla_engine(schema=dataset.schema)
     sql = dataset.get_template_processor().process_template(
         dataset.sql, **dataset.template_params_dict
     )
@@ -135,9 +135,9 @@ def get_virtual_table_metadata(dataset: SqlaTable) -> List[ResultSetColumnType]:
     # TODO(villebro): refactor to use same code that's used by
     #  sql_lab.py:execute_sql_statements
     try:
-        with dataset.database.get_raw_connection(schema=dataset.schema) as conn:
+        with closing(engine.raw_connection()) as conn:
             cursor = conn.cursor()
-            query = dataset.database.apply_limit_to_sql(statements[0], limit=1)
+            query = dataset.database.apply_limit_to_sql(statements[0])
             db_engine_spec.execute(cursor, query)
             result = db_engine_spec.fetch_data(cursor, limit=1)
             result_set = SupersetResultSet(result, cursor.description, db_engine_spec)
@@ -147,32 +147,49 @@ def get_virtual_table_metadata(dataset: SqlaTable) -> List[ResultSetColumnType]:
     return cols
 
 
-def get_columns_description(
-    database: Database,
-    query: str,
-) -> List[ResultSetColumnType]:
-    db_engine_spec = database.db_engine_spec
-    try:
-        with database.get_raw_connection() as conn:
-            cursor = conn.cursor()
-            query = database.apply_limit_to_sql(query, limit=1)
-            cursor.execute(query)
-            db_engine_spec.execute(cursor, query)
-            result = db_engine_spec.fetch_data(cursor, limit=1)
-            result_set = SupersetResultSet(result, cursor.description, db_engine_spec)
-            return result_set.columns
-    except Exception as ex:
-        raise SupersetGenericDBErrorException(message=str(ex)) from ex
+def validate_adhoc_subquery(
+    sql: str,
+    database_id: int,
+    default_schema: str,
+) -> str:
+    """
+    Check if adhoc SQL contains sub-queries or nested sub-queries with table.
+
+    If sub-queries are allowed, the adhoc SQL is modified to insert any applicable RLS
+    predicates to it.
+
+    :param sql: adhoc sql expression
+    :raise SupersetSecurityException if sql contains sub-queries or
+    nested sub-queries with table
+    """
+    # pylint: disable=import-outside-toplevel
+    from superset import is_feature_enabled
+
+    statements = []
+    for statement in sqlparse.parse(sql):
+        if has_table_query(statement):
+            if not is_feature_enabled("ALLOW_ADHOC_SUBQUERY"):
+                raise SupersetSecurityException(
+                    SupersetError(
+                        error_type=SupersetErrorType.ADHOC_SUBQUERY_NOT_ALLOWED_ERROR,
+                        message=_("Custom SQL fields cannot contain sub-queries."),
+                        level=ErrorLevel.ERROR,
+                    )
+                )
+            statement = insert_rls(statement, database_id, default_schema)
+        statements.append(statement)
+
+    return ";\n".join(str(statement) for statement in statements)
 
 
-@lru_cache(maxsize=LRU_CACHE_MAX_SIZE)
+@memoized
 def get_dialect_name(drivername: str) -> str:
-    return SqlaURL.create(drivername).get_dialect().name
+    return SqlaURL(drivername).get_dialect().name
 
 
-@lru_cache(maxsize=LRU_CACHE_MAX_SIZE)
+@memoized
 def get_identifier_quoter(drivername: str) -> Dict[str, Callable[[str], str]]:
-    return SqlaURL.create(drivername).get_dialect()().identifier_preparer.quote
+    return SqlaURL(drivername).get_dialect()().identifier_preparer.quote
 
 
 DeclarativeModel = TypeVar("DeclarativeModel", bound=DeclarativeMeta)

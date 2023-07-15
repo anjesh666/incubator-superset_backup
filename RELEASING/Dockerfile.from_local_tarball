@@ -24,7 +24,7 @@ ENV LANG=C.UTF-8 \
 
 RUN apt-get update -y
 
-# Install dependencies to fix `curl https support error` and `delaying package configuration warning`
+# Install dependencies to fix `curl https support error` and `elaying package configuration warning`
 RUN apt-get install -y apt-transport-https apt-utils
 
 # Install superset dependencies
@@ -61,7 +61,6 @@ RUN pip install --upgrade setuptools pip \
 RUN flask fab babel-compile --target superset/translations
 
 ENV PATH=/home/superset/superset/bin:$PATH \
-    PYTHONPATH=/home/superset/superset/:$PYTHONPATH \
-    SUPERSET_TESTENV=true
+    PYTHONPATH=/home/superset/superset/:$PYTHONPATH
 COPY from_tarball_entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

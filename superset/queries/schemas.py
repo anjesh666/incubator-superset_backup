@@ -33,14 +33,6 @@ openapi_spec_methods_override = {
     },
 }
 
-queries_get_updated_since_schema = {
-    "type": "object",
-    "properties": {
-        "last_updated_ms": {"type": "number"},
-    },
-    "required": ["last_updated_ms"],
-}
-
 
 class DatabaseSchema(Schema):
     database_name = fields.String()
@@ -65,7 +57,7 @@ class QuerySchema(Schema):
     tab_name = fields.String()
     tmp_table_name = fields.String()
     tracking_url = fields.String()
-    user = fields.Nested(UserSchema(exclude=["username"]))
+    user = fields.Nested(UserSchema)
 
     class Meta:  # pylint: disable=too-few-public-methods
         model = Query
@@ -75,11 +67,3 @@ class QuerySchema(Schema):
     # pylint: disable=no-self-use
     def get_sql_tables(self, obj: Query) -> List[Table]:
         return obj.sql_tables
-
-
-class StopQuerySchema(Schema):
-    """
-    Schema for the stop_query API call.
-    """
-
-    client_id = fields.String()

@@ -17,12 +17,9 @@
  * under the License.
  */
 import React from 'react';
-import { useSelector } from 'react-redux';
 import { t } from '@superset-ui/core';
 import { Moment } from 'moment';
 import { isInteger } from 'lodash';
-// @ts-ignore
-import { locales } from 'antd/dist/antd-with-locales';
 import { Col, Row } from 'src/components';
 import { InputNumber } from 'src/components/Input';
 import { DatePicker } from 'src/components/DatePicker';
@@ -39,13 +36,11 @@ import {
   customTimeRangeDecode,
   customTimeRangeEncode,
   dttmToMoment,
-  LOCALE_MAPPING,
 } from 'src/explore/components/controls/DateFilterControl/utils';
 import {
   CustomRangeKey,
   FrameComponentProps,
 } from 'src/explore/components/controls/DateFilterControl/types';
-import { ExplorePageState } from 'src/explore/types';
 
 export function CustomFrame(props: FrameComponentProps) {
   const { customRange, matchedFlag } = customTimeRangeDecode(props.value);
@@ -110,16 +105,6 @@ export function CustomFrame(props: FrameComponentProps) {
     }
   }
 
-  // check if there is a locale defined for explore
-  const localFromFlaskBabel = useSelector(
-    (state: ExplorePageState) => state?.common?.locale,
-  );
-  // An undefined datePickerLocale is acceptable if no match is found in the LOCALE_MAPPING[localFromFlaskBabel] lookup
-  // and will fall back to antd's default locale when the antd DataPicker's prop locale === undefined
-  // This also protects us from the case where state is populated with a locale that antd locales does not recognize
-  const datePickerLocale =
-    locales[LOCALE_MAPPING[localFromFlaskBabel]]?.DatePicker;
-
   return (
     <div data-test="custom-frame">
       <div className="section-title">{t('Configure custom time range')}</div>
@@ -147,7 +132,6 @@ export function CustomFrame(props: FrameComponentProps) {
                   onChange('sinceDatetime', datetime.format(MOMENT_FORMAT))
                 }
                 allowClear={false}
-                locale={datePickerLocale}
               />
             </Row>
           )}
@@ -200,7 +184,6 @@ export function CustomFrame(props: FrameComponentProps) {
                   onChange('untilDatetime', datetime.format(MOMENT_FORMAT))
                 }
                 allowClear={false}
-                locale={datePickerLocale}
               />
             </Row>
           )}
@@ -258,7 +241,6 @@ export function CustomFrame(props: FrameComponentProps) {
                   }
                   allowClear={false}
                   className="control-anchor-to-datetime"
-                  locale={datePickerLocale}
                 />
               </Col>
             )}

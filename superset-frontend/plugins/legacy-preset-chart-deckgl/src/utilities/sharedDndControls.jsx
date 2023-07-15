@@ -18,12 +18,12 @@
  */
 
 import { t } from '@superset-ui/core';
-import { sharedControls } from '@superset-ui/chart-controls';
+import { dndEntity } from '@superset-ui/chart-controls';
 
 export const dndLineColumn = {
   name: 'line_column',
   config: {
-    ...sharedControls.entity,
+    ...dndEntity,
     label: t('Lines column'),
     description: t('The database columns that contains lines information'),
   },
@@ -32,7 +32,7 @@ export const dndLineColumn = {
 export const dndGeojsonColumn = {
   name: 'geojson',
   config: {
-    ...sharedControls.entity,
+    ...dndEntity,
     label: t('GeoJson Column'),
     description: t('Select the geojson column'),
   },

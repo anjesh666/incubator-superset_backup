@@ -51,7 +51,7 @@ describe('controlUtils', () => {
       type: DatasourceType.Table,
       columns: [{ column_name: 'a' }],
       metrics: [{ metric_name: 'first' }, { metric_name: 'second' }],
-      column_formats: {},
+      column_format: {},
       verbose_map: {},
       main_dttm_col: '',
       datasource_name: '1__table',
@@ -59,7 +59,6 @@ describe('controlUtils', () => {
     },
     controls: {},
     form_data: { datasource: '1__table', viz_type: 'table' },
-    common: {},
   };
 
   beforeAll(() => {

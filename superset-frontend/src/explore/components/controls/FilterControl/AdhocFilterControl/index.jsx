@@ -42,15 +42,14 @@ import {
   LabelsContainer,
 } from 'src/explore/components/controls/OptionControls';
 import Icons from 'src/components/Icons';
-import Modal from 'src/components/Modal';
 import AdhocFilterPopoverTrigger from 'src/explore/components/controls/FilterControl/AdhocFilterPopoverTrigger';
 import AdhocFilterOption from 'src/explore/components/controls/FilterControl/AdhocFilterOption';
-import AdhocFilter from 'src/explore/components/controls/FilterControl/AdhocFilter';
+import AdhocFilter, {
+  CLAUSES,
+  EXPRESSION_TYPES,
+} from 'src/explore/components/controls/FilterControl/AdhocFilter';
 import adhocFilterType from 'src/explore/components/controls/FilterControl/adhocFilterType';
 import columnType from 'src/explore/components/controls/FilterControl/columnType';
-import { CLAUSES, EXPRESSION_TYPES } from '../types';
-
-const { warning } = Modal;
 
 const selectedMetricType = PropTypes.oneOfType([
   PropTypes.string,
@@ -72,7 +71,6 @@ const propTypes = {
     PropTypes.arrayOf(selectedMetricType),
   ]),
   isLoading: PropTypes.bool,
-  canDelete: PropTypes.func,
 };
 
 const defaultProps = {
@@ -98,7 +96,6 @@ class AdhocFilterControl extends React.Component {
     this.onChange = this.onChange.bind(this);
     this.mapOption = this.mapOption.bind(this);
     this.getMetricExpression = this.getMetricExpression.bind(this);
-    this.removeFilter = this.removeFilter.bind(this);
 
     const filters = (this.props.value || []).map(filter =>
       isDictionaryForAdhocFilter(filter) ? new AdhocFilter(filter) : filter,
@@ -115,10 +112,7 @@ class AdhocFilterControl extends React.Component {
         sections={this.props.sections}
         operators={this.props.operators}
         datasource={this.props.datasource}
-        onRemoveFilter={e => {
-          e.stopPropagation();
-          this.onRemoveFilter(index);
-        }}
+        onRemoveFilter={() => this.onRemoveFilter(index)}
         onMoveLabel={this.moveLabel}
         onDropLabel={() => this.props.onChange(this.state.values)}
         partitionColumn={this.state.partitionColumn}
@@ -179,7 +173,7 @@ class AdhocFilterControl extends React.Component {
     }
   }
 
-  removeFilter(index) {
+  onRemoveFilter(index) {
     const valuesCopy = [...this.state.values];
     valuesCopy.splice(index, 1);
     this.setState(prevState => ({
@@ -187,17 +181,6 @@ class AdhocFilterControl extends React.Component {
       values: valuesCopy,
     }));
     this.props.onChange(valuesCopy);
-  }
-
-  onRemoveFilter(index) {
-    const { canDelete } = this.props;
-    const { values } = this.state;
-    const result = canDelete?.(values[index], values);
-    if (typeof result === 'string') {
-      warning({ title: t('Warning'), content: result });
-      return;
-    }
-    this.removeFilter(index);
   }
 
   onNewFilter(newFilter) {

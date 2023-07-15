@@ -18,7 +18,7 @@
  */
 import React from 'react';
 import { ClassNames } from '@emotion/react';
-import { styled, useTheme, t } from '@superset-ui/core';
+import { styled, useTheme } from '@superset-ui/core';
 import { Tooltip } from 'src/components/Tooltip';
 
 const StyledTooltip = (props: any) => {
@@ -60,9 +60,9 @@ const iconMap = {
 };
 
 const tooltipTitleMap = {
-  pk: t('Primary key'),
-  fk: t('Foreign key'),
-  index: t('Index'),
+  pk: 'Primary key',
+  fk: 'Foreign key',
+  index: 'Index',
 };
 
 export type ColumnKeyTypeType = keyof typeof tooltipTitleMap;

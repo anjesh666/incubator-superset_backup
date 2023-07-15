@@ -24,8 +24,6 @@ import { NULL_STRING } from 'src/utils/common';
 import SelectFilterPlugin from './SelectFilterPlugin';
 import transformProps from './transformProps';
 
-jest.useFakeTimers();
-
 const selectMultipleProps = {
   formData: {
     sortAscending: true,
@@ -88,7 +86,7 @@ describe('SelectFilterPlugin', () => {
     jest.clearAllMocks();
   });
 
-  test('Add multiple values with first render', async () => {
+  it('Add multiple values with first render', () => {
     getWrapper();
     expect(setDataMask).toHaveBeenCalledWith({
       extraFormData: {},
@@ -116,7 +114,6 @@ describe('SelectFilterPlugin', () => {
     });
     userEvent.click(screen.getByRole('combobox'));
     userEvent.click(screen.getByTitle('girl'));
-    expect(await screen.findByTitle(/girl/i)).toBeInTheDocument();
     expect(setDataMask).toHaveBeenCalledWith({
       __cache: {
         value: ['boy'],
@@ -137,14 +134,9 @@ describe('SelectFilterPlugin', () => {
     });
   });
 
-  test('Remove multiple values when required', () => {
+  it('Remove multiple values when required', () => {
     getWrapper();
-    userEvent.click(
-      screen.getByRole('img', {
-        name: /close-circle/i,
-        hidden: true,
-      }),
-    );
+    userEvent.click(document.querySelector('[data-icon="close"]')!);
     expect(setDataMask).toHaveBeenCalledWith({
       __cache: {
         value: ['boy'],
@@ -165,14 +157,9 @@ describe('SelectFilterPlugin', () => {
     });
   });
 
-  test('Remove multiple values when not required', () => {
+  it('Remove multiple values when not required', () => {
     getWrapper({ enableEmptyFilter: false });
-    userEvent.click(
-      screen.getByRole('img', {
-        name: /close-circle/i,
-        hidden: true,
-      }),
-    );
+    userEvent.click(document.querySelector('[data-icon="close"]')!);
     expect(setDataMask).toHaveBeenCalledWith({
       __cache: {
         value: ['boy'],
@@ -185,10 +172,9 @@ describe('SelectFilterPlugin', () => {
     });
   });
 
-  test('Select single values with inverse', async () => {
+  it('Select single values with inverse', () => {
     getWrapper({ multiSelect: false, inverseSelection: true });
     userEvent.click(screen.getByRole('combobox'));
-    expect(await screen.findByTitle('girl')).toBeInTheDocument();
     userEvent.click(screen.getByTitle('girl'));
     expect(setDataMask).toHaveBeenCalledWith({
       __cache: {
@@ -210,10 +196,9 @@ describe('SelectFilterPlugin', () => {
     });
   });
 
-  test('Select single null (empty) value', async () => {
+  it('Select single null (empty) value', () => {
     getWrapper();
     userEvent.click(screen.getByRole('combobox'));
-    expect(await screen.findByRole('combobox')).toBeInTheDocument();
     userEvent.click(screen.getByTitle(NULL_STRING));
     expect(setDataMask).toHaveBeenLastCalledWith({
       __cache: {
@@ -235,10 +220,9 @@ describe('SelectFilterPlugin', () => {
     });
   });
 
-  test('Add ownState with column types when search all options', async () => {
+  it('Add ownState with column types when search all options', () => {
     getWrapper({ searchAllOptions: true, multiSelect: false });
     userEvent.click(screen.getByRole('combobox'));
-    expect(await screen.findByRole('combobox')).toBeInTheDocument();
     userEvent.click(screen.getByTitle('girl'));
     expect(setDataMask).toHaveBeenCalledWith({
       __cache: {

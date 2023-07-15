@@ -24,7 +24,6 @@ import {
 } from '@superset-ui/core';
 import { RefObject } from 'react';
 import { PluginFilterHooks, PluginFilterStylesProps } from '../types';
-import { FilterBarOrientation } from '../../../dashboard/types';
 
 interface PluginFilterSelectCustomizeProps {
   max?: number;
@@ -41,6 +40,4 @@ export type PluginFilterRangeProps = PluginFilterStylesProps & {
   filterState: FilterState;
   behaviors: Behavior[];
   inputRef: RefObject<any>;
-  filterBarOrientation?: FilterBarOrientation;
-  isOverflowingFilterBar?: boolean;
 } & PluginFilterHooks;

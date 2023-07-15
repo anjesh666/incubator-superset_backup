@@ -32,33 +32,23 @@ import { PostProcessingRule } from './PostProcessing';
 import { JsonObject } from '../../connection';
 import { TimeGranularity } from '../../time-format';
 
-export type BaseQueryObjectFilterClause = {
+export type QueryObjectFilterClause = {
   col: QueryFormColumn;
   grain?: TimeGranularity;
   isExtra?: boolean;
-};
-
-export type BinaryQueryObjectFilterClause = BaseQueryObjectFilterClause & {
-  op: BinaryOperator;
-  val: string | number | boolean;
-  formattedVal?: string;
-};
-
-export type SetQueryObjectFilterClause = BaseQueryObjectFilterClause & {
-  op: SetOperator;
-  val: (string | number | boolean)[];
-  formattedVal?: string[];
-};
-
-export type UnaryQueryObjectFilterClause = BaseQueryObjectFilterClause & {
-  op: UnaryOperator;
-  formattedVal?: string;
-};
-
-export type QueryObjectFilterClause =
-  | BinaryQueryObjectFilterClause
-  | SetQueryObjectFilterClause
-  | UnaryQueryObjectFilterClause;
+} & (
+  | {
+      op: BinaryOperator;
+      val: string | number | boolean;
+    }
+  | {
+      op: SetOperator;
+      val: (string | number | boolean)[];
+    }
+  | {
+      op: UnaryOperator;
+    }
+);
 
 export type QueryObjectExtras = Partial<{
   /** HAVING condition for Druid */
@@ -135,6 +125,12 @@ export interface QueryObject
 
   /** The size of bucket by which to group timeseries data (forthcoming) */
   time_grain?: string;
+
+  /** Maximum number of timeseries */
+  timeseries_limit?: number;
+
+  /** The metric used to sort the returned result. */
+  timeseries_limit_metric?: Maybe<QueryFormMetric>;
 
   /** Direction to ordered by */
   order_desc?: boolean;
@@ -252,7 +248,6 @@ export const CtasEnum = {
 
 export type QueryColumn = {
   name: string;
-  column_name?: string;
   type: string | null;
   is_dttm: boolean;
 };
@@ -296,7 +291,6 @@ export type Query = {
   errorMessage: string | null;
   extra: {
     progress: string | null;
-    errors?: SupersetError[];
   };
   id: string;
   isDataPreview: boolean;
@@ -346,7 +340,6 @@ export type QueryResults = {
 
 export type QueryResponse = Query & QueryResults;
 
-// todo: move out from typing
 export const testQuery: Query = {
   id: 'clientId2353',
   dbId: 1,
@@ -385,76 +378,25 @@ export const testQuery: Query = {
   columns: [
     {
       name: 'Column 1',
-      type: 'STRING',
+      type: DatasourceType.Query,
       is_dttm: false,
     },
     {
       name: 'Column 3',
-      type: 'STRING',
+      type: DatasourceType.Query,
       is_dttm: false,
     },
     {
       name: 'Column 2',
-      type: 'TIMESTAMP',
+      type: DatasourceType.Query,
       is_dttm: true,
     },
   ],
 };
 
-export const testQueryResults = {
-  results: {
-    displayLimitReached: false,
-    columns: [
-      {
-        name: 'Column 1',
-        type: 'STRING',
-        is_dttm: false,
-      },
-      {
-        name: 'Column 3',
-        type: 'STRING',
-        is_dttm: false,
-      },
-      {
-        name: 'Column 2',
-        type: 'TIMESTAMP',
-        is_dttm: true,
-      },
-    ],
-    data: [
-      { 'Column 1': 'a', 'Column 2': 'b', 'Column 3': '2014-11-11T00:00:00' },
-    ],
-    expanded_columns: [],
-    selected_columns: [
-      {
-        name: 'Column 1',
-        type: 'STRING',
-        is_dttm: false,
-      },
-      {
-        name: 'Column 3',
-        type: 'STRING',
-        is_dttm: false,
-      },
-      {
-        name: 'Column 2',
-        type: 'TIMESTAMP',
-        is_dttm: true,
-      },
-    ],
-    query: { limit: 6 },
-  },
-};
-
-export const testQueryResponse = { ...testQuery, ...testQueryResults };
-
 export enum ContributionType {
   Row = 'row',
   Column = 'column',
 }
-
-export type DatasourceSamplesQuery = {
-  filters?: QueryObjectFilterClause[];
-};
 
 export default {};

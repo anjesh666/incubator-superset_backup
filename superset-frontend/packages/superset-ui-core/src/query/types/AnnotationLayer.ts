@@ -125,8 +125,7 @@ export type AnnotationLayer =
   | EventAnnotationLayer
   | IntervalAnnotationLayer
   | FormulaAnnotationLayer
-  | TimeseriesAnnotationLayer
-  | TableAnnotationLayer;
+  | TimeseriesAnnotationLayer;
 
 export function isFormulaAnnotationLayer(
   layer: AnnotationLayer,

@@ -42,7 +42,7 @@ params:
     label: Publisher
     multiple: true
     searchAllOptions: false
-  granularity_sqla: year
+  granularity_sqla: Year
   queryFields: {}
   time_range: No filter
   url_params:

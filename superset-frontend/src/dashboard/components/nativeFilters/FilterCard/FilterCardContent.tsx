@@ -24,17 +24,9 @@ import { DependenciesRow } from './DependenciesRow';
 import { NameRow } from './NameRow';
 import { TypeRow } from './TypeRow';
 
-interface FilterCardContentProps {
-  filter: Filter;
-  hidePopover: () => void;
-}
-
-export const FilterCardContent = ({
-  filter,
-  hidePopover,
-}: FilterCardContentProps) => (
+export const FilterCardContent = ({ filter }: { filter: Filter }) => (
   <div>
-    <NameRow filter={filter} hidePopover={hidePopover} />
+    <NameRow filter={filter} />
     <TypeRow filter={filter} />
     <ScopeRow filter={filter} />
     <DependenciesRow filter={filter} />

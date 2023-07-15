@@ -16,30 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useState } from 'react';
 import { isObject } from 'lodash';
-import rison from 'rison';
 import {
   SupersetClient,
   Query,
   runningQueryStateList,
-  QueryResponse,
 } from '@superset-ui/core';
 import { QueryDictionary } from 'src/SqlLab/types';
 import useInterval from 'src/SqlLab/utils/useInterval';
-import {
-  refreshQueries,
-  clearInactiveQueries,
-} from 'src/SqlLab/actions/sqlLab';
 
-export const QUERY_UPDATE_FREQ = 2000;
+const QUERY_UPDATE_FREQ = 2000;
 const QUERY_UPDATE_BUFFER_MS = 5000;
 const MAX_QUERY_AGE_TO_POLL = 21600000;
 const QUERY_TIMEOUT_LIMIT = 10000;
 
+interface RefreshQueriesFunc {
+  (alteredQueries: any): any;
+}
+
 export interface QueryAutoRefreshProps {
   queries: QueryDictionary;
+  refreshQueries: RefreshQueriesFunc;
   queriesLastUpdate: number;
 }
 
@@ -61,49 +59,31 @@ export const shouldCheckForQueries = (queryList: QueryDictionary): boolean => {
 
 function QueryAutoRefresh({
   queries,
+  refreshQueries,
   queriesLastUpdate,
 }: QueryAutoRefreshProps) {
-  // We do not want to spam requests in the case of slow connections and potentially receive responses out of order
+  // We do not want to spam requests in the case of slow connections and potentially recieve responses out of order
   // pendingRequest check ensures we only have one active http call to check for query statuses
-  const pendingRequestRef = useRef(false);
-  const cleanInactiveRequestRef = useRef(false);
-  const dispatch = useDispatch();
+  const [pendingRequest, setPendingRequest] = useState(false);
 
   const checkForRefresh = () => {
-    const shouldRequestChecking = shouldCheckForQueries(queries);
-    if (!pendingRequestRef.current && shouldRequestChecking) {
-      const params = rison.encode({
-        last_updated_ms: queriesLastUpdate - QUERY_UPDATE_BUFFER_MS,
-      });
-
-      pendingRequestRef.current = true;
+    if (!pendingRequest && shouldCheckForQueries(queries)) {
+      setPendingRequest(true);
       SupersetClient.get({
-        endpoint: `/api/v1/query/updated_since?q=${params}`,
+        endpoint: `/superset/queries/${
+          queriesLastUpdate - QUERY_UPDATE_BUFFER_MS
+        }`,
         timeout: QUERY_TIMEOUT_LIMIT,
       })
         .then(({ json }) => {
           if (json) {
-            const jsonPayload = json as { result?: QueryResponse[] };
-            if (jsonPayload?.result?.length) {
-              const queries =
-                jsonPayload?.result?.reduce((acc, current) => {
-                  acc[current.id] = current;
-                  return acc;
-                }, {}) ?? {};
-              dispatch(refreshQueries(queries));
-            } else {
-              dispatch(clearInactiveQueries());
-            }
+            refreshQueries?.(json);
           }
         })
         .catch(() => {})
         .finally(() => {
-          pendingRequestRef.current = false;
+          setPendingRequest(false);
         });
-    }
-    if (!cleanInactiveRequestRef.current && !shouldRequestChecking) {
-      dispatch(clearInactiveQueries());
-      cleanInactiveRequestRef.current = true;
     }
   };
 

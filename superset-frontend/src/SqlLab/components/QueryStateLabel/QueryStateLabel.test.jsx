@@ -17,7 +17,8 @@
  * under the License.
  */
 import React from 'react';
-import { styledMount as mount } from 'spec/helpers/theming';
+import { shallow } from 'enzyme';
+
 import Label from 'src/components/Label';
 import QueryStateLabel from 'src/SqlLab/components/QueryStateLabel';
 
@@ -33,7 +34,7 @@ describe('SavedQuery', () => {
     );
   });
   it('has an Overlay and a Popover', () => {
-    const wrapper = mount(<QueryStateLabel {...mockedProps} />);
+    const wrapper = shallow(<QueryStateLabel {...mockedProps} />);
     expect(wrapper.find(Label)).toExist();
   });
 });

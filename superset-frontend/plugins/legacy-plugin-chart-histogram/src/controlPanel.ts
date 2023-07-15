@@ -16,28 +16,43 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { t, validateNonEmpty } from '@superset-ui/core';
+import {
+  FeatureFlag,
+  isFeatureEnabled,
+  t,
+  validateNonEmpty,
+} from '@superset-ui/core';
 import {
   columnChoices,
   ControlPanelConfig,
   ControlPanelState,
   formatSelectOptions,
   sections,
+  dndColumnsControl,
   getStandardizedControls,
-  sharedControls,
-  ControlState,
 } from '@superset-ui/chart-controls';
 
-const columnsConfig = {
-  ...sharedControls.columns,
+const allColumns = {
+  type: 'SelectControl',
   label: t('Columns'),
+  default: null,
   description: t('Select the numeric columns to draw the histogram'),
-  mapStateToProps: (state: ControlPanelState, controlState: ControlState) => ({
-    ...(sharedControls.columns.mapStateToProps?.(state, controlState) || {}),
+  mapStateToProps: (state: ControlPanelState) => ({
     choices: columnChoices(state.datasource),
   }),
+  multi: true,
   validators: [validateNonEmpty],
 };
+
+const dndAllColumns = {
+  ...dndColumnsControl,
+  description: t('Select the numeric columns to draw the histogram'),
+  validators: [validateNonEmpty],
+};
+
+const columnsConfig = isFeatureEnabled(FeatureFlag.ENABLE_EXPLORE_DRAG_AND_DROP)
+  ? dndAllColumns
+  : allColumns;
 
 const config: ControlPanelConfig = {
   controlPanelSections: [

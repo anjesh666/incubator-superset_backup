@@ -37,7 +37,6 @@ from superset.databases.filters import DatabaseFilter
 from superset.datasets.commands.bulk_delete import BulkDeleteDatasetCommand
 from superset.datasets.commands.create import CreateDatasetCommand
 from superset.datasets.commands.delete import DeleteDatasetCommand
-from superset.datasets.commands.duplicate import DuplicateDatasetCommand
 from superset.datasets.commands.exceptions import (
     DatasetBulkDeleteFailedError,
     DatasetCreateFailedError,
@@ -55,13 +54,11 @@ from superset.datasets.commands.update import UpdateDatasetCommand
 from superset.datasets.dao import DatasetDAO
 from superset.datasets.filters import DatasetCertifiedFilter, DatasetIsNullOrEmptyFilter
 from superset.datasets.schemas import (
-    DatasetDuplicateSchema,
     DatasetPostSchema,
     DatasetPutSchema,
     DatasetRelatedObjectsResponse,
     get_delete_ids_schema,
     get_export_ids_schema,
-    GetOrCreateDatasetSchema,
 )
 from superset.utils.core import parse_boolean_string
 from superset.views.base import DatasourceFilter, generate_download_headers
@@ -72,7 +69,7 @@ from superset.views.base_api import (
     requires_json,
     statsd_metrics,
 )
-from superset.views.filters import BaseFilterRelatedUsers, FilterRelatedOwners
+from superset.views.filters import FilterRelatedOwners
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +90,6 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "bulk_delete",
         "refresh",
         "related_objects",
-        "duplicate",
-        "get_or_create_dataset",
     }
     list_columns = [
         "id",
@@ -103,7 +98,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "changed_by_name",
         "changed_by_url",
         "changed_by.first_name",
-        "changed_by.last_name",
+        "changed_by.username",
         "changed_on_utc",
         "changed_on_delta_humanized",
         "default_endpoint",
@@ -113,6 +108,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "extra",
         "kind",
         "owners.id",
+        "owners.username",
         "owners.first_name",
         "owners.last_name",
         "schema",
@@ -143,8 +139,8 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "cache_timeout",
         "is_sqllab_view",
         "template_params",
-        "select_star",
         "owners.id",
+        "owners.username",
         "owners.first_name",
         "owners.last_name",
         "columns.advanced_data_type",
@@ -179,33 +175,16 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "url",
         "extra",
         "kind",
-        "created_on",
-        "created_on_humanized",
-        "created_by.first_name",
-        "created_by.last_name",
-        "changed_on",
-        "changed_on_humanized",
-        "changed_by.first_name",
-        "changed_by.last_name",
     ]
     show_columns = show_select_columns + [
         "columns.type_generic",
         "database.backend",
         "columns.advanced_data_type",
         "is_managed_externally",
-        "uid",
-        "datasource_name",
-        "name",
-        "column_formats",
-        "granularity_sqla",
-        "time_grain_sqla",
-        "order_by_choices",
-        "verbose_map",
     ]
     add_model_schema = DatasetPostSchema()
     edit_model_schema = DatasetPutSchema()
-    duplicate_model_schema = DatasetDuplicateSchema()
-    add_columns = ["database", "schema", "table_name", "sql", "owners"]
+    add_columns = ["database", "schema", "table_name", "owners"]
     edit_columns = [
         "table_name",
         "sql",
@@ -225,11 +204,6 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "extra",
     ]
     openapi_spec_tag = "Datasets"
-
-    base_related_field_filters = {
-        "owners": [["id", BaseFilterRelatedUsers, lambda: []]],
-        "database": [["id", DatabaseFilter, lambda: []]],
-    }
     related_field_filters = {
         "owners": RelatedFieldFilter("first_name", FilterRelatedOwners),
         "database": "database_name",
@@ -239,22 +213,16 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "id": [DatasetCertifiedFilter],
     }
     search_columns = ["id", "database", "owners", "schema", "sql", "table_name"]
+    filter_rel_fields = {"database": [["id", DatabaseFilter, lambda: []]]}
     allowed_rel_fields = {"database", "owners"}
     allowed_distinct_fields = {"schema"}
 
     apispec_parameter_schemas = {
         "get_export_ids_schema": get_export_ids_schema,
     }
-    openapi_spec_component_schemas = (
-        DatasetRelatedObjectsResponse,
-        DatasetDuplicateSchema,
-        GetOrCreateDatasetSchema,
-    )
+    openapi_spec_component_schemas = (DatasetRelatedObjectsResponse,)
 
-    list_outer_default_load = True
-    show_outer_default_load = True
-
-    @expose("/", methods=("POST",))
+    @expose("/", methods=["POST"])
     @protect()
     @safe
     @statsd_metrics
@@ -317,7 +285,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>", methods=("PUT",))
+    @expose("/<pk>", methods=["PUT"])
     @protect()
     @safe
     @statsd_metrics
@@ -404,7 +372,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             response = self.response_422(message=str(ex))
         return response
 
-    @expose("/<pk>", methods=("DELETE",))
+    @expose("/<pk>", methods=["DELETE"])
     @protect()
     @safe
     @statsd_metrics
@@ -460,7 +428,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/export/", methods=("GET",))
+    @expose("/export/", methods=["GET"])
     @protect()
     @safe
     @statsd_metrics
@@ -522,7 +490,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
                 buf,
                 mimetype="application/zip",
                 as_attachment=True,
-                download_name=filename,
+                attachment_filename=filename,
             )
             if token:
                 response.set_cookie(token, "done", max_age=600)
@@ -544,78 +512,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             mimetype="application/text",
         )
 
-    @expose("/duplicate", methods=("POST",))
-    @protect()
-    @safe
-    @statsd_metrics
-    @event_logger.log_this_with_context(
-        action=lambda self, *args, **kwargs: f"{self.__class__.__name__}" f".duplicate",
-        log_to_statsd=False,
-    )
-    @requires_json
-    def duplicate(self) -> Response:
-        """Duplicates a Dataset
-        ---
-        post:
-          description: >-
-            Duplicates a Dataset
-          requestBody:
-            description: Dataset schema
-            required: true
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/DatasetDuplicateSchema'
-          responses:
-            201:
-              description: Dataset duplicated
-              content:
-                application/json:
-                  schema:
-                    type: object
-                    properties:
-                      id:
-                        type: number
-                      result:
-                        $ref: '#/components/schemas/DatasetDuplicateSchema'
-            400:
-              $ref: '#/components/responses/400'
-            401:
-              $ref: '#/components/responses/401'
-            403:
-              $ref: '#/components/responses/403'
-            404:
-              $ref: '#/components/responses/404'
-            422:
-              $ref: '#/components/responses/422'
-            500:
-              $ref: '#/components/responses/500'
-        """
-        try:
-            item = self.duplicate_model_schema.load(request.json)
-        # This validates custom Schema with custom validations
-        except ValidationError as error:
-            return self.response_400(message=error.messages)
-
-        try:
-            new_model = DuplicateDatasetCommand(item).run()
-            return self.response(201, id=new_model.id, result=item)
-        except DatasetInvalidError as ex:
-            return self.response_422(
-                message=ex.normalized_messages()
-                if isinstance(ex, ValidationError)
-                else str(ex)
-            )
-        except DatasetCreateFailedError as ex:
-            logger.error(
-                "Error creating model %s: %s",
-                self.__class__.__name__,
-                str(ex),
-                exc_info=True,
-            )
-            return self.response_422(message=str(ex))
-
-    @expose("/<pk>/refresh", methods=("PUT",))
+    @expose("/<pk>/refresh", methods=["PUT"])
     @protect()
     @safe
     @statsd_metrics
@@ -671,7 +568,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>/related_objects", methods=("GET",))
+    @expose("/<pk>/related_objects", methods=["GET"])
     @protect()
     @safe
     @statsd_metrics
@@ -733,7 +630,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             dashboards={"count": len(dashboards), "result": dashboards},
         )
 
-    @expose("/", methods=("DELETE",))
+    @expose("/", methods=["DELETE"])
     @protect()
     @safe
     @statsd_metrics
@@ -796,7 +693,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         except DatasetBulkDeleteFailedError as ex:
             return self.response_422(message=str(ex))
 
-    @expose("/import/", methods=("POST",))
+    @expose("/import/", methods=["POST"])
     @protect()
     @statsd_metrics
     @event_logger.log_this_with_context(
@@ -830,36 +727,6 @@ class DatasetRestApi(BaseSupersetModelRestApi):
                     overwrite:
                       description: overwrite existing datasets?
                       type: boolean
-                    sync_columns:
-                      description: sync columns?
-                      type: boolean
-                    sync_metrics:
-                      description: sync metrics?
-                      type: boolean
-                    ssh_tunnel_passwords:
-                      description: >-
-                        JSON map of passwords for each ssh_tunnel associated to a
-                        featured database in the ZIP file. If the ZIP includes a
-                        ssh_tunnel config in the path `databases/MyDatabase.yaml`,
-                        the password should be provided in the following format:
-                        `{"databases/MyDatabase.yaml": "my_password"}`.
-                      type: string
-                    ssh_tunnel_private_keys:
-                      description: >-
-                        JSON map of private_keys for each ssh_tunnel associated to a
-                        featured database in the ZIP file. If the ZIP includes a
-                        ssh_tunnel config in the path `databases/MyDatabase.yaml`,
-                        the private_key should be provided in the following format:
-                        `{"databases/MyDatabase.yaml": "my_private_key"}`.
-                      type: string
-                    ssh_tunnel_private_key_passwords:
-                      description: >-
-                        JSON map of private_key_passwords for each ssh_tunnel associated
-                        to a featured database in the ZIP file. If the ZIP includes a
-                        ssh_tunnel config in the path `databases/MyDatabase.yaml`,
-                        the private_key should be provided in the following format:
-                        `{"databases/MyDatabase.yaml": "my_private_key_password"}`.
-                      type: string
           responses:
             200:
               description: Dataset import result
@@ -898,99 +765,9 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             else None
         )
         overwrite = request.form.get("overwrite") == "true"
-        sync_columns = request.form.get("sync_columns") == "true"
-        sync_metrics = request.form.get("sync_metrics") == "true"
-        ssh_tunnel_passwords = (
-            json.loads(request.form["ssh_tunnel_passwords"])
-            if "ssh_tunnel_passwords" in request.form
-            else None
-        )
-        ssh_tunnel_private_keys = (
-            json.loads(request.form["ssh_tunnel_private_keys"])
-            if "ssh_tunnel_private_keys" in request.form
-            else None
-        )
-        ssh_tunnel_priv_key_passwords = (
-            json.loads(request.form["ssh_tunnel_private_key_passwords"])
-            if "ssh_tunnel_private_key_passwords" in request.form
-            else None
-        )
 
         command = ImportDatasetsCommand(
-            contents,
-            passwords=passwords,
-            overwrite=overwrite,
-            sync_columns=sync_columns,
-            sync_metrics=sync_metrics,
-            ssh_tunnel_passwords=ssh_tunnel_passwords,
-            ssh_tunnel_private_keys=ssh_tunnel_private_keys,
-            ssh_tunnel_priv_key_passwords=ssh_tunnel_priv_key_passwords,
+            contents, passwords=passwords, overwrite=overwrite
         )
         command.run()
         return self.response(200, message="OK")
-
-    @expose("/get_or_create/", methods=("POST",))
-    @protect()
-    @safe
-    @statsd_metrics
-    @event_logger.log_this_with_context(
-        action=lambda self, *args, **kwargs: f"{self.__class__.__name__}"
-        f".get_or_create_dataset",
-        log_to_statsd=False,
-    )
-    def get_or_create_dataset(self) -> Response:
-        """Retrieve a dataset by name, or create it if it does not exist
-        ---
-        post:
-          summary: Retrieve a table by name, or create it if it does not exist
-          requestBody:
-            required: true
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/GetOrCreateDatasetSchema'
-          responses:
-            200:
-              description: The ID of the table
-              content:
-                application/json:
-                  schema:
-                    type: object
-                    properties:
-                      result:
-                        type: object
-                        properties:
-                          table_id:
-                            type: integer
-            400:
-              $ref: '#/components/responses/400'
-            401:
-              $ref: '#/components/responses/401'
-            422:
-              $ref: '#/components/responses/422'
-            500:
-              $ref: '#/components/responses/500'
-        """
-        try:
-            body = GetOrCreateDatasetSchema().load(request.json)
-        except ValidationError as ex:
-            return self.response(400, message=ex.messages)
-        table_name = body["table_name"]
-        database_id = body["database_id"]
-        if table := DatasetDAO.get_table_by_name(database_id, table_name):
-            return self.response(200, result={"table_id": table.id})
-
-        body["database"] = database_id
-        try:
-            tbl = CreateDatasetCommand(body).run()
-            return self.response(200, result={"table_id": tbl.id})
-        except DatasetInvalidError as ex:
-            return self.response_422(message=ex.normalized_messages())
-        except DatasetCreateFailedError as ex:
-            logger.error(
-                "Error creating model %s: %s",
-                self.__class__.__name__,
-                str(ex),
-                exc_info=True,
-            )
-            return self.response_422(message=ex.message)

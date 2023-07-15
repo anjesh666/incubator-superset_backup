@@ -19,7 +19,6 @@
 import { t, ChartMetadata, ChartPlugin } from '@superset-ui/core';
 import transformProps from '../transformProps';
 import thumbnail from './images/thumbnail.png';
-import example from './images/example.jpg';
 import controlPanel from './controlPanel';
 
 const metadata = new ChartMetadata({
@@ -28,7 +27,6 @@ const metadata = new ChartMetadata({
   description: t(
     'Visualizes many different time-series objects in a single chart. This chart is being deprecated and we recommend using the Time-series Chart instead.',
   ),
-  exampleGallery: [{ url: example }],
   name: t('Time-series Percent Change'),
   tags: [
     t('Legacy'),

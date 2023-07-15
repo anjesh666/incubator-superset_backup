@@ -19,13 +19,13 @@ from __future__ import annotations
 import os
 from typing import Optional, TYPE_CHECKING
 
-from flask_babel import lazy_gettext as _
-
 from superset.errors import SupersetError, SupersetErrorType
 from superset.exceptions import SupersetException
 
+MSG_FORMAT = "Failed to execute {}"
+
 if TYPE_CHECKING:
-    from superset.sqllab.sqllab_execution_context import SqlJsonExecutionContext
+    from superset.utils.sqllab_execution_context import SqlJsonExecutionContext
 
 
 class SqlLabException(SupersetException):
@@ -48,23 +48,20 @@ class SqlLabException(SupersetException):
             if exception is not None:
                 if (
                     hasattr(exception, "error_type")
-                    and exception.error_type is not None
+                    and exception.error_type is not None  # type: ignore
                 ):
-                    error_type = exception.error_type
+                    error_type = exception.error_type  # type: ignore
                 elif hasattr(exception, "error") and isinstance(
-                    exception.error, SupersetError
+                    exception.error, SupersetError  # type: ignore
                 ):
-                    error_type = exception.error.error_type
+                    error_type = exception.error.error_type  # type: ignore
             else:
                 error_type = SupersetErrorType.GENERIC_BACKEND_ERROR
 
         super().__init__(self._generate_message(), exception, error_type)
 
     def _generate_message(self) -> str:
-        msg = _(
-            "Failed to execute %(query)s",
-            query=self.sql_json_execution_context.get_query_details(),
-        )
+        msg = MSG_FORMAT.format(self.sql_json_execution_context.get_query_details())
         if self.failed_reason_msg:
             msg = msg + self.failed_reason_msg
         if self.suggestion_help_msg is not None:
@@ -79,9 +76,9 @@ class SqlLabException(SupersetException):
             return ": {}".format(reason_message)
         if exception is not None:
             if hasattr(exception, "get_message"):
-                return ": {}".format(exception.get_message())
+                return ": {}".format(exception.get_message())  # type: ignore
             if hasattr(exception, "message"):
-                return ": {}".format(exception.message)
+                return ": {}".format(exception.message)  # type: ignore
             return ": {}".format(str(exception))
         return ""
 

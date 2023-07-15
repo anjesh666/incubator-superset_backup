@@ -29,20 +29,20 @@ describe('Gauge buildQuery', () => {
     const formData = { ...baseFormData, groupby: undefined };
     const queryContext = buildQuery(formData);
     const [query] = queryContext.queries;
-    expect(query.columns).toEqual([]);
+    expect(query.groupby).toEqual([]);
   });
 
   it('should build query fields with single group by column', () => {
     const formData = { ...baseFormData, groupby: ['foo'] };
     const queryContext = buildQuery(formData);
     const [query] = queryContext.queries;
-    expect(query.columns).toEqual(['foo']);
+    expect(query.groupby).toEqual(['foo']);
   });
 
   it('should build query fields with multiple group by columns', () => {
     const formData = { ...baseFormData, groupby: ['foo', 'bar'] };
     const queryContext = buildQuery(formData);
     const [query] = queryContext.queries;
-    expect(query.columns).toEqual(['foo', 'bar']);
+    expect(query.groupby).toEqual(['foo', 'bar']);
   });
 });

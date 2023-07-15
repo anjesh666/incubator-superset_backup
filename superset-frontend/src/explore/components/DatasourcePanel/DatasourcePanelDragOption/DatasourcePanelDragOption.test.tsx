@@ -17,35 +17,38 @@
  * under the License.
  */
 import React from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { render, screen } from 'spec/helpers/testing-library';
 import { DndItemType } from 'src/explore/components/DndItemType';
 import DatasourcePanelDragOption from '.';
 
-test('should render', async () => {
+test('should render', () => {
   render(
-    <DatasourcePanelDragOption
-      value={{ metric_name: 'test' }}
-      type={DndItemType.Metric}
-    />,
-    { useDnd: true },
+    <DndProvider backend={HTML5Backend}>
+      <DatasourcePanelDragOption
+        value={{ metric_name: 'test' }}
+        type={DndItemType.Metric}
+      />
+    </DndProvider>,
   );
 
-  expect(
-    await screen.findByTestId('DatasourcePanelDragOption'),
-  ).toBeInTheDocument();
+  expect(screen.getByTestId('DatasourcePanelDragOption')).toBeInTheDocument();
   expect(screen.getByText('test')).toBeInTheDocument();
 });
 
-test('should have attribute draggable:true', async () => {
+test('should have attribute draggable:true', () => {
   render(
-    <DatasourcePanelDragOption
-      value={{ metric_name: 'test' }}
-      type={DndItemType.Metric}
-    />,
-    { useDnd: true },
+    <DndProvider backend={HTML5Backend}>
+      <DatasourcePanelDragOption
+        value={{ metric_name: 'test' }}
+        type={DndItemType.Metric}
+      />
+    </DndProvider>,
   );
 
-  expect(
-    await screen.findByTestId('DatasourcePanelDragOption'),
-  ).toHaveAttribute('draggable', 'true');
+  expect(screen.getByTestId('DatasourcePanelDragOption')).toHaveAttribute(
+    'draggable',
+    'true',
+  );
 });

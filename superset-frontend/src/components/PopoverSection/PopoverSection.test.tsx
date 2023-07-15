@@ -21,23 +21,23 @@ import { render, screen } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
 import PopoverSection from 'src/components/PopoverSection';
 
-test('renders with default props', async () => {
+test('renders with default props', () => {
   render(
     <PopoverSection title="Title">
       <div role="form" />
     </PopoverSection>,
   );
-  expect(await screen.findByRole('form')).toBeInTheDocument();
-  expect((await screen.findAllByRole('img')).length).toBe(1);
+  expect(screen.getByRole('form')).toBeInTheDocument();
+  expect(screen.getAllByRole('img').length).toBe(1);
 });
 
-test('renders tooltip icon', async () => {
+test('renders tooltip icon', () => {
   render(
     <PopoverSection title="Title" info="Tooltip">
       <div role="form" />
     </PopoverSection>,
   );
-  expect((await screen.findAllByRole('img')).length).toBe(2);
+  expect(screen.getAllByRole('img').length).toBe(2);
 });
 
 test('renders a tooltip when hovered', async () => {
@@ -50,13 +50,13 @@ test('renders a tooltip when hovered', async () => {
   expect(await screen.findByRole('tooltip')).toBeInTheDocument();
 });
 
-test('calls onSelect when clicked', async () => {
+test('calls onSelect when clicked', () => {
   const onSelect = jest.fn();
   render(
     <PopoverSection title="Title" onSelect={onSelect}>
       <div role="form" />
     </PopoverSection>,
   );
-  userEvent.click(await screen.findByRole('img'));
+  userEvent.click(screen.getByRole('img'));
   expect(onSelect).toHaveBeenCalled();
 });

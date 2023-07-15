@@ -24,7 +24,6 @@ import {
   NumberFormats,
   CategoricalColorNamespace,
   getSequentialSchemeRegistry,
-  t,
 } from '@superset-ui/core';
 import wrapSvgText from './utils/wrapSvgText';
 
@@ -382,10 +381,7 @@ function Sunburst(element, props) {
       .append('text')
       .attr('class', 'path-abs-percent')
       .attr('y', yOffsets[offsetIndex])
-      // eslint-disable-next-line prefer-template
-      .text(absolutePercString + ' ' + t('of total'));
-
-    const OF_PARENT_TEXT = t('of parent');
+      .text(`${absolutePercString} of total`);
 
     if (conditionalPercString) {
       offsetIndex += 1;
@@ -393,7 +389,7 @@ function Sunburst(element, props) {
         .append('text')
         .attr('class', 'path-cond-percent')
         .attr('y', yOffsets[offsetIndex])
-        .text(`${conditionalPercString} ${OF_PARENT_TEXT}`);
+        .text(`${conditionalPercString} of parent`);
     }
 
     offsetIndex += 1;

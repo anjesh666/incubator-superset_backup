@@ -17,16 +17,14 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import types
-
 from superset.db_engine_specs.base import BaseEngineSpec
+from superset.utils import core as utils
 
 
 class DremioEngineSpec(BaseEngineSpec):
+
     engine = "dremio"
     engine_name = "Dremio"
-
-    allows_alias_in_select = False
 
     _time_grain_expressions = {
         None: "{col}",
@@ -48,11 +46,10 @@ class DremioEngineSpec(BaseEngineSpec):
     def convert_dttm(
         cls, target_type: str, dttm: datetime, db_extra: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
-        sqla_type = cls.get_sqla_column_type(target_type)
-
-        if isinstance(sqla_type, types.Date):
+        tt = target_type.upper()
+        if tt == utils.TemporalType.DATE:
             return f"TO_DATE('{dttm.date().isoformat()}', 'YYYY-MM-DD')"
-        if isinstance(sqla_type, types.TIMESTAMP):
+        if tt == utils.TemporalType.TIMESTAMP:
             dttm_formatted = dttm.isoformat(sep=" ", timespec="milliseconds")
             return f"""TO_TIMESTAMP('{dttm_formatted}', 'YYYY-MM-DD HH24:MI:SS.FFF')"""
         return None

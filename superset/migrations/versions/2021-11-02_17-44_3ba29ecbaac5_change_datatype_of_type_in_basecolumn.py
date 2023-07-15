@@ -31,6 +31,7 @@ from alembic import op
 
 
 def upgrade():
+
     with op.batch_alter_table("table_columns") as batch_op:
         batch_op.alter_column(
             "type", existing_type=sa.VARCHAR(length=32), type_=sa.TEXT()

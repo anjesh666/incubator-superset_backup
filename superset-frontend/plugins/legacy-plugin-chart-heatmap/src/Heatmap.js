@@ -22,8 +22,6 @@ import PropTypes from 'prop-types';
 import 'd3-svg-legend';
 import d3tip from 'd3-tip';
 import {
-  getColumnLabel,
-  getMetricLabel,
   getNumberFormatter,
   NumberFormats,
   getSequentialSchemeRegistry,
@@ -46,8 +44,8 @@ const propTypes = {
   height: PropTypes.number,
   bottomMargin: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   colorScheme: PropTypes.string,
-  columnX: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
-  columnY: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  columnX: PropTypes.string,
+  columnY: PropTypes.string,
   leftMargin: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   metric: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
   normalized: PropTypes.bool,
@@ -179,7 +177,7 @@ function Heatmap(element, props) {
       domain[d[k]] = (domain[d[k]] || 0) + d.v;
       actualKeys[d[k]] = d[k];
     });
-    // Not using object.keys() as it converts to strings
+    // Not usgin object.keys() as it converts to strings
     const keys = Object.keys(actualKeys).map(s => actualKeys[s]);
     if (sortMethod === 'alpha_asc') {
       domain = keys.sort(cmp);
@@ -340,13 +338,12 @@ function Heatmap(element, props) {
       const k = d3.mouse(this);
       const m = Math.floor(scale[0].invert(k[0]));
       const n = Math.floor(scale[1].invert(k[1]));
+      const metricLabel = typeof metric === 'object' ? metric.label : metric;
       if (m in matrix && n in matrix[m]) {
         const obj = matrix[m][n];
-        s += `<div><b>${getColumnLabel(columnX)}: </b>${obj.x}<div>`;
-        s += `<div><b>${getColumnLabel(columnY)}: </b>${obj.y}<div>`;
-        s += `<div><b>${getMetricLabel(metric)}: </b>${valueFormatter(
-          obj.v,
-        )}<div>`;
+        s += `<div><b>${columnX}: </b>${obj.x}<div>`;
+        s += `<div><b>${columnY}: </b>${obj.y}<div>`;
+        s += `<div><b>${metricLabel}: </b>${valueFormatter(obj.v)}<div>`;
         if (showPercentage) {
           s += `<div><b>%: </b>${fp(normalized ? obj.rank : obj.perc)}<div>`;
         }

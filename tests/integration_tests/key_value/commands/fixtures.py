@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-import json
+import pickle
 from typing import Generator, TYPE_CHECKING
 from uuid import UUID
 
@@ -26,11 +26,7 @@ from flask_appbuilder.security.sqla.models import User
 from sqlalchemy.orm import Session
 
 from superset.extensions import db
-from superset.key_value.types import (
-    JsonKeyValueCodec,
-    KeyValueResource,
-    PickleKeyValueCodec,
-)
+from superset.key_value.types import KeyValueResource
 from tests.integration_tests.test_app import app
 
 if TYPE_CHECKING:
@@ -39,10 +35,7 @@ if TYPE_CHECKING:
 ID_KEY = 123
 UUID_KEY = UUID("3e7a2ab8-bcaf-49b0-a5df-dfb432f291cc")
 RESOURCE = KeyValueResource.APP
-JSON_VALUE = {"foo": "bar"}
-PICKLE_VALUE = object()
-JSON_CODEC = JsonKeyValueCodec()
-PICKLE_CODEC = PickleKeyValueCodec()
+VALUE = {"foo": "bar"}
 
 
 @pytest.fixture
@@ -53,7 +46,7 @@ def key_value_entry() -> Generator[KeyValueEntry, None, None]:
         id=ID_KEY,
         uuid=UUID_KEY,
         resource=RESOURCE,
-        value=bytes(json.dumps(JSON_VALUE), encoding="utf-8"),
+        value=pickle.dumps(VALUE),
     )
     db.session.add(entry)
     db.session.commit()

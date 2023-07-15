@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { omit } from 'lodash';
 import {
   ensureIsArray,
   getChartControlPanelRegistry,
@@ -92,33 +91,20 @@ export class StandardizedFormData {
      * */
     const formData = Object.freeze(sourceFormData);
 
-    // generates an ordered map, the key is viz_type and the value is form_data. the last item is current viz.
-    const mfd = formData?.standardizedFormData?.memorizedFormData;
+    // generates an ordered map, the key is viz_type and the value is form_data. the last item is current viz
+    const memorizedFormData: Map<string, QueryFormData> = Array.isArray(
+      formData?.standardizedFormData?.memorizedFormData,
+    )
+      ? new Map(formData.standardizedFormData.memorizedFormData)
+      : new Map();
     const vizType = formData.viz_type;
-    let memorizedFormData = new Map<string, QueryFormData>();
-    let controls: StandardizedControls;
-    if (
-      Array.isArray(mfd) &&
-      mfd.length > 0 &&
-      formData.datasource === mfd.slice(-1)[0][1]?.datasource
-    ) {
-      memorizedFormData = new Map(
-        formData.standardizedFormData.memorizedFormData,
-      );
-      if (memorizedFormData.has(vizType)) {
-        memorizedFormData.delete(vizType);
-      }
-      memorizedFormData.set(vizType, formData);
-      controls = StandardizedFormData.getStandardizedControls(formData);
-    } else {
-      // reset the `memorizedFormData` if a request between different datasource.
-      const restFormData = omit(
-        formData,
-        'standardizedFormData',
-      ) as QueryFormData;
-      memorizedFormData.set(vizType, restFormData);
-      controls = StandardizedFormData.getStandardizedControls(restFormData);
+    if (memorizedFormData.has(vizType)) {
+      memorizedFormData.delete(vizType);
     }
+    memorizedFormData.set(vizType, formData);
+
+    // calculate sharedControls
+    const controls = StandardizedFormData.getStandardizedControls(formData);
 
     this.sfd = {
       controls,

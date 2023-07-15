@@ -41,7 +41,6 @@ describe('RefreshIntervalModal - Enzyme', () => {
     refreshFrequency: 10,
     onChange: jest.fn(),
     editMode: true,
-    refreshIntervalOptions: [],
   };
   it('should show warning message', () => {
     const props = {
@@ -79,20 +78,7 @@ const createProps = () => ({
     userId: '1',
     metadata: {},
     common: {
-      conf: {
-        DASHBOARD_AUTO_REFRESH_INTERVALS: [
-          [0, "Don't refresh"],
-          [10, '10 seconds'],
-          [30, '30 seconds'],
-          [60, '1 minute'],
-          [300, '5 minutes'],
-          [1800, '30 minutes'],
-          [3600, '1 hour'],
-          [21600, '6 hours'],
-          [43200, '12 hours'],
-          [86400, '24 hours'],
-        ],
-      },
+      conf: {},
     },
   },
   dashboardTitle: 'Title',
@@ -147,7 +133,6 @@ const defaultRefreshIntervalModalProps = {
   onChange: jest.fn(),
   editMode: true,
   addSuccessToast: jest.fn(),
-  refreshIntervalOptions: [],
 };
 
 describe('RefreshIntervalModal - RTL', () => {
@@ -219,6 +204,7 @@ describe('RefreshIntervalModal - RTL', () => {
     await openRefreshIntervalModal();
     await displayOptions();
 
+    screen.logTestingPlaygroundURL();
     // Select a new interval and click save
     userEvent.click(screen.getByText(/10 seconds/i));
     userEvent.click(screen.getByRole('button', { name: /save/i }));

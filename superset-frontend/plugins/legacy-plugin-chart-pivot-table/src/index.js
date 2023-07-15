@@ -19,7 +19,6 @@
 import { t, ChartMetadata, ChartPlugin } from '@superset-ui/core';
 import transformProps from './transformProps';
 import thumbnail from './images/thumbnail.png';
-import example from './images/example.jpg';
 import controlPanel from './controlPanel';
 
 const metadata = new ChartMetadata({
@@ -28,8 +27,7 @@ const metadata = new ChartMetadata({
     t(`Used to summarize a set of data by grouping together multiple statistics along two axes. Examples: Sales numbers by region and month, tasks by status and assignee, active users by age and location.
 
   This chart is being deprecated and we recommend checking out Pivot Table V2 instead!`),
-  exampleGallery: [{ url: example }],
-  name: t('Pivot Table (legacy)'),
+  name: t('Pivot Table'),
   tags: [t('Legacy')],
   thumbnail,
   useLegacyApi: true,

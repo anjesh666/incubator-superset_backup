@@ -16,22 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { FC, useEffect, useMemo, useRef } from 'react';
-import { Global } from '@emotion/react';
-import { useHistory } from 'react-router-dom';
+import React, { FC, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CategoricalColorNamespace,
   FeatureFlag,
   getSharedLabelColor,
   isFeatureEnabled,
-  SharedLabelColorSource,
   t,
   useTheme,
 } from '@superset-ui/core';
 import pick from 'lodash/pick';
 import { useDispatch, useSelector } from 'react-redux';
+import { Global } from '@emotion/react';
 import { useToasts } from 'src/components/MessageToasts/withToasts';
 import Loading from 'src/components/Loading';
+import FilterBoxMigrationModal from 'src/dashboard/components/FilterBoxMigrationModal';
 import {
   useDashboard,
   useDashboardCharts,
@@ -41,29 +40,36 @@ import { hydrateDashboard } from 'src/dashboard/actions/hydrate';
 import { setDatasources } from 'src/dashboard/actions/datasources';
 import injectCustomCss from 'src/dashboard/util/injectCustomCss';
 import setupPlugins from 'src/setup/setupPlugins';
+import { UserWithPermissionsAndRoles } from 'src/types/bootstrapTypes';
+import { addWarningToast } from 'src/components/MessageToasts/actions';
 
 import {
   getItem,
   LocalStorageKeys,
   setItem,
 } from 'src/utils/localStorageHelpers';
+import {
+  FILTER_BOX_MIGRATION_STATES,
+  FILTER_BOX_TRANSITION_SNOOZE_DURATION,
+} from 'src/explore/constants';
 import { URL_PARAMS } from 'src/constants';
 import { getUrlParam } from 'src/utils/urlUtils';
+import { canUserEditDashboard } from 'src/dashboard/util/permissionUtils';
 import { getFilterSets } from 'src/dashboard/actions/nativeFilters';
 import { setDatasetsStatus } from 'src/dashboard/actions/dashboardState';
 import {
   getFilterValue,
   getPermalinkValue,
 } from 'src/dashboard/components/nativeFilters/FilterBar/keyValue';
+import { filterCardPopoverStyle } from 'src/dashboard/styles';
 import { DashboardContextForExplore } from 'src/types/DashboardContextForExplore';
 import shortid from 'shortid';
 import { RootState } from '../types';
 import { getActiveFilters } from '../util/activeDashboardFilters';
-import {
-  chartContextMenuStyles,
-  filterCardPopoverStyle,
-  headerStyles,
-} from '../styles';
+
+export const MigrationContext = React.createContext(
+  FILTER_BOX_MIGRATION_STATES.NOOP,
+);
 
 export const DashboardPageIdContext = React.createContext('');
 
@@ -147,9 +153,11 @@ const useSyncDashboardStateWithLocalStorage = () => {
 };
 
 export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
-  const theme = useTheme();
   const dispatch = useDispatch();
-  const history = useHistory();
+  const theme = useTheme();
+  const user = useSelector<any, UserWithPermissionsAndRoles>(
+    state => state.user,
+  );
   const dashboardPageId = useSyncDashboardStateWithLocalStorage();
   const { addDangerToast } = useToasts();
   const { result: dashboard, error: dashboardApiError } =
@@ -165,7 +173,16 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
 
   const error = dashboardApiError || chartsApiError;
   const readyToRender = Boolean(dashboard && charts);
+  const migrationStateParam = getUrlParam(
+    URL_PARAMS.migrationState,
+  ) as FILTER_BOX_MIGRATION_STATES;
+  const isMigrationEnabled = isFeatureEnabled(
+    FeatureFlag.ENABLE_FILTER_BOX_MIGRATION,
+  );
   const { dashboard_title, css, metadata, id = 0 } = dashboard || {};
+  const [filterboxMigrationState, setFilterboxMigrationState] = useState(
+    migrationStateParam || FILTER_BOX_MIGRATION_STATES.NOOP,
+  );
 
   useEffect(() => {
     // mark tab id as redundant when user closes browser tab - a new id will be
@@ -189,6 +206,67 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
   useEffect(() => {
     dispatch(setDatasetsStatus(status));
   }, [dispatch, status]);
+
+  useEffect(() => {
+    // should convert filter_box to filter component?
+    const hasFilterBox =
+      charts &&
+      charts.some(chart => chart.form_data?.viz_type === 'filter_box');
+    const canEdit = dashboard && canUserEditDashboard(dashboard, user);
+
+    if (canEdit) {
+      // can user edit dashboard?
+      if (metadata?.native_filter_configuration) {
+        setFilterboxMigrationState(
+          isMigrationEnabled
+            ? FILTER_BOX_MIGRATION_STATES.CONVERTED
+            : FILTER_BOX_MIGRATION_STATES.NOOP,
+        );
+        return;
+      }
+
+      // set filterbox migration state if has filter_box in the dash:
+      if (hasFilterBox) {
+        if (isMigrationEnabled) {
+          // has url param?
+          if (
+            migrationStateParam &&
+            Object.values(FILTER_BOX_MIGRATION_STATES).includes(
+              migrationStateParam,
+            )
+          ) {
+            setFilterboxMigrationState(migrationStateParam);
+            return;
+          }
+
+          // has cookie?
+          const snoozeDash = getItem(
+            LocalStorageKeys.filter_box_transition_snoozed_at,
+            {},
+          );
+          if (
+            Date.now() - (snoozeDash[id] || 0) <
+            FILTER_BOX_TRANSITION_SNOOZE_DURATION
+          ) {
+            setFilterboxMigrationState(FILTER_BOX_MIGRATION_STATES.SNOOZED);
+            return;
+          }
+
+          setFilterboxMigrationState(FILTER_BOX_MIGRATION_STATES.UNDECIDED);
+        } else if (isFeatureEnabled(FeatureFlag.DASHBOARD_NATIVE_FILTERS)) {
+          dispatch(
+            addWarningToast(
+              t(
+                'filter_box will be deprecated ' +
+                  'in a future version of Superset. ' +
+                  'Please replace filter_box by dashboard filter components.',
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }, [readyToRender]);
 
   useEffect(() => {
     // eslint-disable-next-line consistent-return
@@ -223,10 +301,10 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
         }
         dispatch(
           hydrateDashboard({
-            history,
             dashboard,
             charts,
             activeTabs,
+            filterboxMigrationState,
             dataMask,
           }),
         );
@@ -235,7 +313,7 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
     }
     if (id) getDataMaskApplied();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readyToRender]);
+  }, [readyToRender, filterboxMigrationState]);
 
   useEffect(() => {
     if (dashboard_title) {
@@ -255,18 +333,17 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
     return () => {};
   }, [css]);
 
-  useEffect(() => {
-    const sharedLabelColor = getSharedLabelColor();
-    sharedLabelColor.source = SharedLabelColorSource.dashboard;
-    return () => {
+  useEffect(
+    () => () => {
       // clean up label color
       const categoricalNamespace = CategoricalColorNamespace.getNamespace(
         metadata?.color_namespace,
       );
       categoricalNamespace.resetColors();
-      sharedLabelColor.clear();
-    };
-  }, [metadata?.color_namespace]);
+      getSharedLabelColor().clear();
+    },
+    [metadata?.color_namespace],
+  );
 
   useEffect(() => {
     if (datasetsApiError) {
@@ -279,20 +356,39 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
   }, [addDangerToast, datasets, datasetsApiError, dispatch]);
 
   if (error) throw error; // caught in error boundary
-  if (!readyToRender || !isDashboardHydrated.current) return <Loading />;
+  if (!readyToRender) return <Loading />;
 
   return (
     <>
-      <Global
-        styles={[
-          filterCardPopoverStyle(theme),
-          headerStyles(theme),
-          chartContextMenuStyles(theme),
-        ]}
+      <Global styles={filterCardPopoverStyle(theme)} />
+      <FilterBoxMigrationModal
+        show={filterboxMigrationState === FILTER_BOX_MIGRATION_STATES.UNDECIDED}
+        hideFooter={!isMigrationEnabled}
+        onHide={() => {
+          // cancel button: only snooze this visit
+          setFilterboxMigrationState(FILTER_BOX_MIGRATION_STATES.SNOOZED);
+        }}
+        onClickReview={() => {
+          setFilterboxMigrationState(FILTER_BOX_MIGRATION_STATES.REVIEWING);
+        }}
+        onClickSnooze={() => {
+          const snoozedDash = getItem(
+            LocalStorageKeys.filter_box_transition_snoozed_at,
+            {},
+          );
+          setItem(LocalStorageKeys.filter_box_transition_snoozed_at, {
+            ...snoozedDash,
+            [id]: Date.now(),
+          });
+          setFilterboxMigrationState(FILTER_BOX_MIGRATION_STATES.SNOOZED);
+        }}
       />
-      <DashboardPageIdContext.Provider value={dashboardPageId}>
-        <DashboardContainer />
-      </DashboardPageIdContext.Provider>
+
+      <MigrationContext.Provider value={filterboxMigrationState}>
+        <DashboardPageIdContext.Provider value={dashboardPageId}>
+          <DashboardContainer />
+        </DashboardPageIdContext.Provider>
+      </MigrationContext.Provider>
     </>
   );
 };

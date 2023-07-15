@@ -15,11 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 import io
-import json
 import os
 import tempfile
 import zipfile
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from flask import flash, g, redirect
@@ -110,71 +109,25 @@ class DatabaseView(
         return super().render_app_template()
 
 
-class CustomFormView(SimpleFormView):
-    """
-    View for presenting your own forms
-    Inherit from this view to provide some base
-    processing for your customized form views.
-
-    Notice that this class inherits from BaseView
-    so all properties from the parent class can be overridden also.
-
-    Implement form_get and form_post to implement
-    your form pre-processing and post-processing
-    """
-
-    @expose("/form", methods=("GET",))
-    @has_access
-    def this_form_get(self) -> Any:
-        self._init_vars()
-        form = self.form.refresh()
-        self.form_get(form)
-        self.update_redirect()
-        return self.render_template(
-            self.form_template,
-            title=self.form_title,
-            form=form,
-            appbuilder=self.appbuilder,
-        )
-
-    @expose("/form", methods=("POST",))
-    @has_access
-    def this_form_post(self) -> Any:
-        self._init_vars()
-        form = self.form.refresh()
-        if form.validate_on_submit():
-            response = self.form_post(form)  # pylint: disable=assignment-from-no-return
-            if not response:
-                return redirect(self.get_redirect())
-            return response
-        return self.render_template(
-            self.form_template,
-            title=self.form_title,
-            form=form,
-            appbuilder=self.appbuilder,
-        )
-
-
-class CsvToDatabaseView(CustomFormView):
+class CsvToDatabaseView(SimpleFormView):
     form = CsvToDatabaseForm
     form_template = "superset/form_view/csv_to_database_view/edit.html"
     form_title = _("CSV to Database configuration")
     add_columns = ["database", "schema", "table_name"]
 
     def form_get(self, form: CsvToDatabaseForm) -> None:
-        form.delimiter.data = ","
+        form.sep.data = ","
         form.header.data = 0
-        form.overwrite_duplicate.data = True
-        form.skip_initial_space.data = False
+        form.mangle_dupe_cols.data = True
+        form.skipinitialspace.data = False
         form.skip_blank_lines.data = True
         form.infer_datetime_format.data = True
         form.decimal.data = "."
         form.if_exists.data = "fail"
 
     def form_post(self, form: CsvToDatabaseForm) -> Response:
-        database = form.database.data
-        csv_table = Table(table=form.table_name.data, schema=form.schema.data)
-        delimiter_input = form.delimiter.data
+        database = form.con.data
+        csv_table = Table(table=form.name.data, schema=form.schema.data)
 
         if not schema_allows_file_upload(database, csv_table.schema):
             message = _(
@@ -186,11 +139,7 @@ class CsvToDatabaseView(CustomFormView):
             flash(message, "danger")
             return redirect("/csvtodatabaseview/form")
 
-        if form.delimiter.data == "other":
-            delimiter_input = form.otherInput.data
-
         try:
-            kwargs = {"dtype": json.loads(form.dtype.data)} if form.dtype.data else {}
             df = pd.concat(
                 pd.read_csv(
                     chunksize=1000,
@@ -201,22 +150,21 @@ class CsvToDatabaseView(CustomFormView):
                     infer_datetime_format=form.infer_datetime_format.data,
                     iterator=True,
                     keep_default_na=not form.null_values.data,
-                    mangle_dupe_cols=form.overwrite_duplicate.data,
-                    usecols=form.use_cols.data if form.use_cols.data else None,
+                    mangle_dupe_cols=form.mangle_dupe_cols.data,
+                    usecols=form.usecols.data if form.usecols.data else None,
                     na_values=form.null_values.data if form.null_values.data else None,
                     nrows=form.nrows.data,
                     parse_dates=form.parse_dates.data,
-                    sep=delimiter_input,
+                    sep=form.sep.data,
                     skip_blank_lines=form.skip_blank_lines.data,
-                    skipinitialspace=form.skip_initial_space.data,
+                    skipinitialspace=form.skipinitialspace.data,
                     skiprows=form.skiprows.data,
-                    **kwargs,
                 )
             )
 
             database = (
                 db.session.query(models.Database)
-                .filter_by(id=form.data.get("database").data.get("id"))
+                .filter_by(id=form.data.get("con").data.get("id"))
                 .one()
             )
 
@@ -227,7 +175,7 @@ class CsvToDatabaseView(CustomFormView):
                 to_sql_kwargs={
                     "chunksize": 1000,
                     "if_exists": form.if_exists.data,
-                    "index": form.dataframe_index.data,
+                    "index": form.index.data,
                     "index_label": form.index_label.data,
                 },
             )
@@ -235,10 +183,10 @@ class CsvToDatabaseView(CustomFormView):
             # Connect table to the database that should be used for exploration.
             # E.g. if hive was used to upload a csv, presto will be a better option
             # to explore the table.
-            explore_database = database
+            expore_database = database
             explore_database_id = database.explore_database_id
             if explore_database_id:
-                explore_database = (
+                expore_database = (
                     db.session.query(models.Database)
                     .filter_by(id=explore_database_id)
                     .one_or_none()
@@ -250,7 +198,7 @@ class CsvToDatabaseView(CustomFormView):
                 .filter_by(
                     table_name=csv_table.table,
                     schema=csv_table.schema,
-                    database_id=explore_database.id,
+                    database_id=expore_database.id,
                 )
                 .one_or_none()
             )
@@ -259,7 +207,7 @@ class CsvToDatabaseView(CustomFormView):
                 sqla_table.fetch_metadata()
             if not sqla_table:
                 sqla_table = SqlaTable(table_name=csv_table.table)
-                sqla_table.database = explore_database
+                sqla_table.database = expore_database
                 sqla_table.database_id = database.id
                 sqla_table.owners = [g.user]
                 sqla_table.schema = csv_table.schema
@@ -273,7 +221,7 @@ class CsvToDatabaseView(CustomFormView):
                 '"%(table_name)s" in database "%(db_name)s". '
                 "Error message: %(error_msg)s",
                 filename=form.csv_file.data.filename,
-                table_name=form.table_name.data,
+                table_name=form.name.data,
                 db_name=database.database_name,
                 error_msg=str(ex),
             )
@@ -293,9 +241,9 @@ class CsvToDatabaseView(CustomFormView):
         flash(message, "info")
         event_logger.log_with_context(
             action="successful_csv_upload",
-            database=form.database.data.name,
+            database=form.con.data.name,
             schema=form.schema.data,
-            table=form.table_name.data,
+            table=form.name.data,
         )
         return redirect("/tablemodelview/list/")
 
@@ -314,7 +262,7 @@ class ExcelToDatabaseView(SimpleFormView):
         form.sheet_name.data = ""
 
     def form_post(self, form: ExcelToDatabaseForm) -> Response:
-        database = form.database.data
+        database = form.con.data
         excel_table = Table(table=form.name.data, schema=form.schema.data)
 
         if not schema_allows_file_upload(database, excel_table.schema):
@@ -353,7 +301,7 @@ class ExcelToDatabaseView(SimpleFormView):
 
             database = (
                 db.session.query(models.Database)
-                .filter_by(id=form.data.get("database").data.get("id"))
+                .filter_by(id=form.data.get("con").data.get("id"))
                 .one()
             )
 
@@ -372,10 +320,10 @@ class ExcelToDatabaseView(SimpleFormView):
             # Connect table to the database that should be used for exploration.
             # E.g. if hive was used to upload a excel, presto will be a better option
             # to explore the table.
-            explore_database = database
+            expore_database = database
             explore_database_id = database.explore_database_id
             if explore_database_id:
-                explore_database = (
+                expore_database = (
                     db.session.query(models.Database)
                     .filter_by(id=explore_database_id)
                     .one_or_none()
@@ -387,7 +335,7 @@ class ExcelToDatabaseView(SimpleFormView):
                 .filter_by(
                     table_name=excel_table.table,
                     schema=excel_table.schema,
-                    database_id=explore_database.id,
+                    database_id=expore_database.id,
                 )
                 .one_or_none()
             )
@@ -396,7 +344,7 @@ class ExcelToDatabaseView(SimpleFormView):
                 sqla_table.fetch_metadata()
             if not sqla_table:
                 sqla_table = SqlaTable(table_name=excel_table.table)
-                sqla_table.database = explore_database
+                sqla_table.database = expore_database
                 sqla_table.database_id = database.id
                 sqla_table.owners = [g.user]
                 sqla_table.schema = excel_table.schema
@@ -430,7 +378,7 @@ class ExcelToDatabaseView(SimpleFormView):
         flash(message, "info")
         event_logger.log_with_context(
             action="successful_excel_upload",
-            database=form.database.data.name,
+            database=form.con.data.name,
             schema=form.schema.data,
             table=form.name.data,
         )
@@ -449,7 +397,7 @@ class ColumnarToDatabaseView(SimpleFormView):
     def form_post(  # pylint: disable=too-many-locals
         self, form: ColumnarToDatabaseForm
     ) -> Response:
-        database = form.database.data
+        database = form.con.data
         columnar_table = Table(table=form.name.data, schema=form.schema.data)
         files = form.columnar_file.data
         file_type = {file.filename.split(".")[-1] for file in files}
@@ -494,7 +442,7 @@ class ColumnarToDatabaseView(SimpleFormView):
 
             database = (
                 db.session.query(models.Database)
-                .filter_by(id=form.data.get("database").data.get("id"))
+                .filter_by(id=form.data.get("con").data.get("id"))
                 .one()
             )
 
@@ -513,10 +461,10 @@ class ColumnarToDatabaseView(SimpleFormView):
             # Connect table to the database that should be used for exploration.
             # E.g. if hive was used to upload a csv, presto will be a better option
             # to explore the table.
-            explore_database = database
+            expore_database = database
             explore_database_id = database.explore_database_id
             if explore_database_id:
-                explore_database = (
+                expore_database = (
                     db.session.query(models.Database)
                     .filter_by(id=explore_database_id)
                     .one_or_none()
@@ -528,7 +476,7 @@ class ColumnarToDatabaseView(SimpleFormView):
                 .filter_by(
                     table_name=columnar_table.table,
                     schema=columnar_table.schema,
-                    database_id=explore_database.id,
+                    database_id=expore_database.id,
                 )
                 .one_or_none()
             )
@@ -537,7 +485,7 @@ class ColumnarToDatabaseView(SimpleFormView):
                 sqla_table.fetch_metadata()
             if not sqla_table:
                 sqla_table = SqlaTable(table_name=columnar_table.table)
-                sqla_table.database = explore_database
+                sqla_table.database = expore_database
                 sqla_table.database_id = database.id
                 sqla_table.owners = [g.user]
                 sqla_table.schema = columnar_table.schema
@@ -571,7 +519,7 @@ class ColumnarToDatabaseView(SimpleFormView):
         flash(message, "info")
         event_logger.log_with_context(
             action="successful_columnar_upload",
-            database=form.database.data.name,
+            database=form.con.data.name,
             schema=form.schema.data,
             table=form.name.data,
         )

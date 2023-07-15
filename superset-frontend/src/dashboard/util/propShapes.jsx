@@ -63,7 +63,7 @@ export const slicePropShape = PropTypes.shape({
   datasource_name: PropTypes.string,
   datasource_link: PropTypes.string,
   changed_on: PropTypes.number.isRequired,
-  modified: PropTypes.string,
+  modified: PropTypes.string.isRequired,
   viz_type: PropTypes.string.isRequired,
   description: PropTypes.string,
   description_markeddown: PropTypes.string,
@@ -84,10 +84,10 @@ export const dashboardFilterPropShape = PropTypes.shape({
 });
 
 export const dashboardStatePropShape = PropTypes.shape({
-  sliceIds: PropTypes.arrayOf(PropTypes.number),
+  sliceIds: PropTypes.arrayOf(PropTypes.number).isRequired,
   expandedSlices: PropTypes.object,
   editMode: PropTypes.bool,
-  isPublished: PropTypes.bool,
+  isPublished: PropTypes.bool.isRequired,
   colorNamespace: PropTypes.string,
   colorScheme: PropTypes.string,
   updatedColorScheme: PropTypes.bool,
@@ -95,13 +95,13 @@ export const dashboardStatePropShape = PropTypes.shape({
 });
 
 export const dashboardInfoPropShape = PropTypes.shape({
-  id: PropTypes.number,
+  id: PropTypes.number.isRequired,
   metadata: PropTypes.object,
   slug: PropTypes.string,
-  dash_edit_perm: PropTypes.bool,
-  dash_save_perm: PropTypes.bool,
+  dash_edit_perm: PropTypes.bool.isRequired,
+  dash_save_perm: PropTypes.bool.isRequired,
   common: PropTypes.object,
-  userId: PropTypes.string,
+  userId: PropTypes.string.isRequired,
 });
 
 /* eslint-disable-next-line  no-undef */

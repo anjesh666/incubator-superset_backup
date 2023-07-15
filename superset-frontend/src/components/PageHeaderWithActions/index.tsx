@@ -19,7 +19,6 @@
 import React, { ReactNode, ReactElement } from 'react';
 import { css, SupersetTheme, t, useTheme } from '@superset-ui/core';
 import { AntdDropdown, AntdDropdownProps } from 'src/components';
-import { TooltipPlacement } from 'src/components/Tooltip';
 import {
   DynamicEditableTitle,
   DynamicEditableTitleProps,
@@ -93,7 +92,7 @@ const buttonsStyles = (theme: SupersetTheme) => css`
   & .fave-unfave-icon {
     padding: 0 ${theme.gridUnit}px;
 
-    &:first-of-type {
+    &:first-child {
       padding-left: 0;
     }
   }
@@ -113,10 +112,6 @@ export type PageHeaderWithActionsProps = {
   rightPanelAdditionalItems: ReactNode;
   additionalActionsMenu: ReactElement;
   menuDropdownProps: Omit<AntdDropdownProps, 'overlay'>;
-  tooltipProps?: {
-    text?: string;
-    placement?: TooltipPlacement;
-  };
 };
 
 export const PageHeaderWithActions = ({
@@ -129,7 +124,6 @@ export const PageHeaderWithActions = ({
   rightPanelAdditionalItems,
   additionalActionsMenu,
   menuDropdownProps,
-  tooltipProps,
 }: PageHeaderWithActionsProps) => {
   const theme = useTheme();
   return (
@@ -158,9 +152,6 @@ export const PageHeaderWithActions = ({
               css={menuTriggerStyles}
               buttonStyle="tertiary"
               aria-label={t('Menu actions trigger')}
-              tooltip={tooltipProps?.text}
-              placement={tooltipProps?.placement}
-              data-test="actions-trigger"
             >
               <Icons.MoreHoriz
                 iconColor={theme.colors.primary.dark2}

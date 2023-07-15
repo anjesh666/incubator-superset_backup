@@ -27,7 +27,7 @@ import {
   t,
   withTheme,
 } from '@superset-ui/core';
-import { getTemporalColumns } from '@superset-ui/chart-controls';
+
 import { getUrlParam } from 'src/utils/urlUtils';
 import { AntdDropdown } from 'src/components';
 import { Menu } from 'src/components/Menu';
@@ -42,10 +42,7 @@ import ErrorAlert from 'src/components/ErrorMessage/ErrorAlert';
 import WarningIconWithTooltip from 'src/components/WarningIconWithTooltip';
 import { URL_PARAMS } from 'src/constants';
 import { getDatasourceAsSaveableDataset } from 'src/utils/datasourceUtils';
-import {
-  canUserAccessSqlLab,
-  isUserAdmin,
-} from 'src/dashboard/util/permissionUtils';
+import { isUserAdmin } from 'src/dashboard/util/permissionUtils';
 import ModalTrigger from 'src/components/ModalTrigger';
 import ViewQueryModalFooter from 'src/explore/components/controls/ViewQueryModalFooter';
 import ViewQuery from 'src/explore/components/controls/ViewQuery';
@@ -174,31 +171,19 @@ class DatasourceControl extends React.PureComponent {
 
   onDatasourceSave = datasource => {
     this.props.actions.changeDatasource(datasource);
-    const { temporalColumns, defaultTemporalColumn } =
-      getTemporalColumns(datasource);
-    const { columns } = datasource;
-    // the current granularity_sqla might not be a temporal column anymore
     const timeCol = this.props.form_data?.granularity_sqla;
-    const isGranularitySqalTemporal = columns.find(
-      ({ column_name }) => column_name === timeCol,
-    )?.is_dttm;
-    // the current main_dttm_col might not be a temporal column anymore
-    const isDefaultTemporal = columns.find(
-      ({ column_name }) => column_name === defaultTemporalColumn,
-    )?.is_dttm;
-
-    // if the current granularity_sqla is empty or it is not a temporal column anymore
-    // let's update the control value
-    if (datasource.type === 'table' && !isGranularitySqalTemporal) {
-      const temporalColumn = isDefaultTemporal
-        ? defaultTemporalColumn
-        : temporalColumns?.[0];
+    const { columns } = this.props.datasource;
+    const firstDttmCol = columns.find(column => column.is_dttm);
+    if (
+      datasource.type === 'table' &&
+      !columns.find(({ column_name }) => column_name === timeCol)?.is_dttm
+    ) {
+      // set `granularity_sqla` to first datatime column name or null
       this.props.actions.setControlValue(
         'granularity_sqla',
-        temporalColumn || null,
+        firstDttmCol ? firstDttmCol.column_name : null,
       );
     }
-
     if (this.props.onDatasourceSave) {
       this.props.onDatasourceSave(datasource);
     }
@@ -267,12 +252,11 @@ class DatasourceControl extends React.PureComponent {
       showSaveDatasetModal,
     } = this.state;
     const { datasource, onChange, theme } = this.props;
-    const isMissingDatasource = !datasource?.id;
+    const isMissingDatasource = datasource?.id == null;
     let isMissingParams = false;
     if (isMissingDatasource) {
       const datasourceId = getUrlParam(URL_PARAMS.datasourceId);
       const sliceId = getUrlParam(URL_PARAMS.sliceId);
-
       if (!datasourceId && !sliceId) {
         isMissingParams = true;
       }
@@ -283,13 +267,11 @@ class DatasourceControl extends React.PureComponent {
       datasource.owners?.map(o => o.id || o.value).includes(user.userId) ||
       isUserAdmin(user);
 
-    const canAccessSqlLab = canUserAccessSqlLab(user);
-
     const editText = t('Edit dataset');
 
     const defaultDatasourceMenu = (
       <Menu onClick={this.handleMenuItemClick}>
-        {this.props.isEditable && !isMissingDatasource && (
+        {this.props.isEditable && (
           <Menu.Item
             key={EDIT_DATASET}
             data-test="edit-dataset"
@@ -308,8 +290,8 @@ class DatasourceControl extends React.PureComponent {
             )}
           </Menu.Item>
         )}
-        <Menu.Item key={CHANGE_DATASET}>{t('Swap dataset')}</Menu.Item>
-        {!isMissingDatasource && canAccessSqlLab && (
+        <Menu.Item key={CHANGE_DATASET}>{t('Change dataset')}</Menu.Item>
+        {datasource && (
           <Menu.Item key={VIEW_IN_SQL_LAB}>{t('View in SQL Lab')}</Menu.Item>
         )}
       </Menu>
@@ -339,9 +321,7 @@ class DatasourceControl extends React.PureComponent {
             responsive
           />
         </Menu.Item>
-        {canAccessSqlLab && (
-          <Menu.Item key={VIEW_IN_SQL_LAB}>{t('View in SQL Lab')}</Menu.Item>
-        )}
+        <Menu.Item key={VIEW_IN_SQL_LAB}>{t('View in SQL Lab')}</Menu.Item>
         <Menu.Item key={SAVE_AS_DATASET}>{t('Save as dataset')}</Menu.Item>
       </Menu>
     );
@@ -359,10 +339,7 @@ class DatasourceControl extends React.PureComponent {
       }
     }
 
-    const titleText = isMissingDatasource
-      ? t('Missing dataset')
-      : getDatasourceTitle(datasource);
-
+    const titleText = getDatasourceTitle(datasource);
     const tooltip = titleText;
 
     return (
@@ -432,7 +409,7 @@ class DatasourceControl extends React.PureComponent {
                         this.handleMenuItemClick({ key: CHANGE_DATASET })
                       }
                     >
-                      {t('Swap dataset')}
+                      {t('Change dataset')}
                     </Button>
                   </p>
                 </>
@@ -460,8 +437,8 @@ class DatasourceControl extends React.PureComponent {
           <SaveDatasetModal
             visible={showSaveDatasetModal}
             onHide={this.toggleSaveDatasetModal}
-            buttonTextOnSave={t('Save')}
-            buttonTextOnOverwrite={t('Overwrite')}
+            buttonTextOnSave={t('Save & Explore')}
+            buttonTextOnOverwrite={t('Overwrite & Explore')}
             modalDescription={t(
               'Save this query as a virtual dataset to continue exploring',
             )}

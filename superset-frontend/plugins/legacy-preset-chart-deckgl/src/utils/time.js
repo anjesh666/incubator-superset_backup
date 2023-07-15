@@ -20,7 +20,7 @@
 import moment from 'moment';
 
 // array with the minimum values of each part of a timestamp -- note that
-// months are zero-indexed in JavaScript
+// months are zero-indexed in Javascript
 const truncatePartTo = [
   1, // year
   0, // month
@@ -62,13 +62,13 @@ export function truncate(timestamp, step) {
 function getStepSeconds(step, start) {
   /* Return number of seconds in a step.
    *
-   * The step might be ambiguous, eg, "1 month" has a variable number of
+   * The step might be ambigous, eg, "1 month" has a variable number of
    * seconds, which is why we need to know the start time.
    */
-  const startMilliseconds = parseInt(moment(start).format('x'), 10);
+  const startMillliseconds = parseInt(moment(start).format('x'), 10);
   const endMilliseconds = parseInt(moment(start).add(step).format('x'), 10);
 
-  return endMilliseconds - startMilliseconds;
+  return endMilliseconds - startMillliseconds;
 }
 
 export function getPlaySliderParams(timestamps, timeGrain) {

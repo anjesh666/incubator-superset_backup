@@ -17,7 +17,6 @@
  * under the License.
  */
 import React from 'react';
-import userEvent from '@testing-library/user-event';
 import { render, screen } from 'spec/helpers/testing-library';
 import { DndItemType } from 'src/explore/components/DndItemType';
 import DndSelectLabel, {
@@ -30,35 +29,27 @@ const defaultProps: DndSelectLabelProps = {
   onDrop: jest.fn(),
   canDrop: () => false,
   valuesRenderer: () => <span />,
-  ghostButtonText: 'Drop columns here or click',
-  onClickGhostButton: jest.fn(),
 };
 
-test('renders with default props', () => {
+test('renders with default props', async () => {
   render(<DndSelectLabel {...defaultProps} />, { useDnd: true });
-  expect(screen.getByText('Drop columns here or click')).toBeInTheDocument();
+  expect(await screen.findByText('Drop columns here')).toBeInTheDocument();
 });
 
-test('renders ghost button when empty', () => {
+test('renders ghost button when empty', async () => {
   const ghostButtonText = 'Ghost button text';
   render(
     <DndSelectLabel {...defaultProps} ghostButtonText={ghostButtonText} />,
     { useDnd: true },
   );
-  expect(screen.getByText(ghostButtonText)).toBeInTheDocument();
+  expect(await screen.findByText(ghostButtonText)).toBeInTheDocument();
 });
 
-test('renders values', () => {
+test('renders values', async () => {
   const values = 'Values';
   const valuesRenderer = () => <span>{values}</span>;
   render(<DndSelectLabel {...defaultProps} valuesRenderer={valuesRenderer} />, {
     useDnd: true,
   });
-  expect(screen.getByText(values)).toBeInTheDocument();
-});
-
-test('Handles ghost button click', () => {
-  render(<DndSelectLabel {...defaultProps} />, { useDnd: true });
-  userEvent.click(screen.getByText('Drop columns here or click'));
-  expect(defaultProps.onClickGhostButton).toHaveBeenCalled();
+  expect(await screen.findByText(values)).toBeInTheDocument();
 });

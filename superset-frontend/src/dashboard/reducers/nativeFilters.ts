@@ -23,9 +23,6 @@ import {
   SET_FILTER_SETS_COMPLETE,
   SET_FOCUSED_NATIVE_FILTER,
   UNSET_FOCUSED_NATIVE_FILTER,
-  SET_HOVERED_NATIVE_FILTER,
-  UNSET_HOVERED_NATIVE_FILTER,
-  UPDATE_CASCADE_PARENT_IDS,
 } from 'src/dashboard/actions/nativeFilters';
 import {
   FilterSet,
@@ -104,30 +101,6 @@ export default function nativeFilterReducer(
       return {
         ...state,
         focusedFilterId: undefined,
-      };
-
-    case SET_HOVERED_NATIVE_FILTER:
-      return {
-        ...state,
-        hoveredFilterId: action.id,
-      };
-
-    case UNSET_HOVERED_NATIVE_FILTER:
-      return {
-        ...state,
-        hoveredFilterId: undefined,
-      };
-
-    case UPDATE_CASCADE_PARENT_IDS:
-      return {
-        ...state,
-        filters: {
-          ...state.filters,
-          [action.id]: {
-            ...state.filters[action.id],
-            cascadeParentIds: action.parentIds,
-          },
-        },
       };
     // TODO handle SET_FILTER_CONFIG_FAIL action
     default:

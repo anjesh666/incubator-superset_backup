@@ -42,7 +42,8 @@ class AnnotationLayerDAO(BaseDAO):
             if commit:
                 db.session.commit()
         except SQLAlchemyError as ex:
-            db.session.rollback()
+            if commit:
+                db.session.rollback()
             raise DAODeleteFailedError() from ex
 
     @staticmethod

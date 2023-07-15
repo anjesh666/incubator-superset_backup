@@ -22,10 +22,9 @@ import userEvent from '@testing-library/user-event';
 import {
   render,
   waitForElementToBeRemoved,
-  waitFor,
 } from 'spec/helpers/testing-library';
 import { exploreActions } from 'src/explore/actions/exploreActions';
-import { ChartMetadata, ChartPlugin } from '@superset-ui/core';
+import { ChartMetadata, ChartPlugin, promiseTimeout } from '@superset-ui/core';
 import { ResultsPaneOnDashboard } from '../components';
 import { createResultsPaneOnDashboardProps } from './fixture';
 
@@ -134,9 +133,9 @@ describe('ResultsPaneOnDashboard', () => {
       },
     );
 
-    await waitFor(() => {
+    await promiseTimeout(() => {
       expect(setForceQuery).toHaveBeenCalledTimes(1);
-    });
+    }, 10);
     expect(queryByText('2 rows')).toBeVisible();
     expect(queryByText('Action')).toBeVisible();
     expect(queryByText('Horror')).toBeVisible();

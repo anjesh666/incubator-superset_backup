@@ -16,20 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { QueryFormColumn, QueryFormData } from '@superset-ui/core';
+import { EChartsCoreOption } from 'echarts';
 import {
-  BaseChartProps,
-  BaseTransformedProps,
-  ContextMenuTransformedProps,
-  CrossFilterTransformedProps,
-  LegendFormData,
-  LegendOrientation,
-  LegendType,
-} from '../types';
+  ChartDataResponseResult,
+  ChartProps,
+  DataRecordValue,
+  QueryFormColumn,
+  QueryFormData,
+  SetDataMaskHook,
+} from '@superset-ui/core';
+import { EchartsLegendFormData, LegendOrientation, LegendType } from '../types';
 import { DEFAULT_LEGEND_FORM_DATA } from '../constants';
 
 export type EchartsPieFormData = QueryFormData &
-  LegendFormData & {
+  EchartsLegendFormData & {
     colorScheme?: string;
     currentOwnValue?: string[] | null;
     donut: boolean;
@@ -45,6 +45,7 @@ export type EchartsPieFormData = QueryFormData &
     numberFormat: string;
     dateFormat: string;
     showLabelsThreshold: number;
+    emitFilter: boolean;
   };
 
 export enum EchartsPieLabelType {
@@ -56,9 +57,9 @@ export enum EchartsPieLabelType {
   KeyValuePercent = 'key_value_percent',
 }
 
-export interface EchartsPieChartProps
-  extends BaseChartProps<EchartsPieFormData> {
+export interface EchartsPieChartProps extends ChartProps<EchartsPieFormData> {
   formData: EchartsPieFormData;
+  queriesData: ChartDataResponseResult[];
 }
 
 // @ts-ignore
@@ -76,10 +77,18 @@ export const DEFAULT_FORM_DATA: EchartsPieFormData = {
   showLabels: true,
   labelsOutside: true,
   showLabelsThreshold: 5,
+  emitFilter: false,
   dateFormat: 'smart_date',
 };
 
-export type PieChartTransformedProps =
-  BaseTransformedProps<EchartsPieFormData> &
-    ContextMenuTransformedProps &
-    CrossFilterTransformedProps;
+export interface PieChartTransformedProps {
+  formData: EchartsPieFormData;
+  height: number;
+  width: number;
+  echartOptions: EChartsCoreOption;
+  emitFilter: boolean;
+  setDataMask: SetDataMaskHook;
+  labelMap: Record<string, DataRecordValue[]>;
+  groupby: QueryFormColumn[];
+  selectedValues: Record<number, string>;
+}

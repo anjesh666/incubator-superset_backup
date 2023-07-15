@@ -17,53 +17,44 @@
  * under the License.
  */
 
+import { SearchOutlined } from '@ant-design/icons';
 import React, { FC } from 'react';
-import { css } from '@superset-ui/core';
-import Icons from 'src/components/Icons';
 import { getFilterValueForDisplay } from 'src/dashboard/components/nativeFilters/FilterBar/FilterSets/utils';
 import {
+  FilterIndicatorText,
   FilterValue,
-  FilterItem,
-  FilterName,
+  Item,
+  ItemIcon,
+  Title,
 } from 'src/dashboard/components/FiltersBadge/Styles';
-import { Indicator } from 'src/dashboard/components/nativeFilters/selectors';
+import { Indicator } from 'src/dashboard/components/FiltersBadge/selectors';
 
 export interface IndicatorProps {
   indicator: Indicator;
   onClick?: (path: string[]) => void;
+  text?: string;
 }
 
 const FilterIndicator: FC<IndicatorProps> = ({
   indicator: { column, name, value, path = [] },
-  onClick,
+  onClick = () => {},
+  text,
 }) => {
   const resultValue = getFilterValueForDisplay(value);
   return (
-    <FilterItem
-      onClick={
-        onClick ? () => onClick([...path, `LABEL-${column}`]) : undefined
-      }
-    >
-      {onClick && (
-        <i>
-          <Icons.SearchOutlined
-            iconSize="m"
-            css={css`
-              span {
-                vertical-align: 0;
-              }
-            `}
-          />
-        </i>
-      )}
-      <div>
-        <FilterName>
+    <>
+      <Item onClick={() => onClick([...path, `LABEL-${column}`])}>
+        <Title bold>
+          <ItemIcon>
+            <SearchOutlined />
+          </ItemIcon>
           {name}
           {resultValue ? ': ' : ''}
-        </FilterName>
+        </Title>
         <FilterValue>{resultValue}</FilterValue>
-      </div>
-    </FilterItem>
+      </Item>
+      {text && <FilterIndicatorText>{text}</FilterIndicatorText>}
+    </>
   );
 };
 

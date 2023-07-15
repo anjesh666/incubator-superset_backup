@@ -23,7 +23,7 @@ import {
   ControlPanelState,
   formatSelectOptions,
   sections,
-  sharedControls,
+  dndEntity,
   getStandardizedControls,
 } from '@superset-ui/chart-controls';
 
@@ -36,16 +36,16 @@ const allColumns = {
 };
 
 const columnsConfig = isFeatureEnabled(FeatureFlag.ENABLE_EXPLORE_DRAG_AND_DROP)
-  ? sharedControls.entity
+  ? dndEntity
   : allColumns;
 
 const colorChoices = [
-  ['rgb(0, 139, 139)', t('Dark Cyan')],
-  ['rgb(128, 0, 128)', t('Purple')],
-  ['rgb(255, 215, 0)', t('Gold')],
-  ['rgb(69, 69, 69)', t('Dim Gray')],
-  ['rgb(220, 20, 60)', t('Crimson')],
-  ['rgb(34, 139, 34)', t('Forest Green')],
+  ['rgb(0, 139, 139)', 'Dark Cyan'],
+  ['rgb(128, 0, 128)', 'Purple'],
+  ['rgb(255, 215, 0)', 'Gold'],
+  ['rgb(69, 69, 69)', 'Dim Gray'],
+  ['rgb(220, 20, 60)', 'Crimson'],
+  ['rgb(34, 139, 34)', 'Forest Green'],
 ];
 
 const config: ControlPanelConfig = {
@@ -124,7 +124,9 @@ const config: ControlPanelConfig = {
               ),
               mapStateToProps: state => {
                 const datasourceChoices = columnChoices(state.datasource);
-                const choices: [string, string][] = [['Auto', t('Auto')]];
+                const choices: [string, string][] = formatSelectOptions([
+                  'Auto',
+                ]);
                 return {
                   choices: choices.concat(datasourceChoices),
                 };
@@ -139,11 +141,7 @@ const config: ControlPanelConfig = {
               type: 'SelectControl',
               label: t('Point Radius Unit'),
               default: 'Pixels',
-              choices: [
-                ['Pixels', t('Pixels')],
-                ['Miles', t('Miles')],
-                ['Kilometers', t('Kilometers')],
-              ],
+              choices: formatSelectOptions(['Pixels', 'Miles', 'Kilometers']),
               description: t(
                 'The unit of measure for the specified point radius',
               ),
@@ -182,14 +180,14 @@ const config: ControlPanelConfig = {
               type: 'SelectControl',
               label: t('Cluster label aggregator'),
               clearable: false,
-              choices: [
-                ['sum', t('sum')],
-                ['mean', t('mean')],
-                ['min', t('min')],
-                ['max', t('max')],
-                ['std', t('std')],
-                ['var', t('var')],
-              ],
+              choices: formatSelectOptions([
+                'sum',
+                'mean',
+                'min',
+                'max',
+                'std',
+                'var',
+              ]),
               default: 'sum',
               description: t(
                 'Aggregate function applied to the list of points ' +
@@ -225,15 +223,15 @@ const config: ControlPanelConfig = {
               clearable: false,
               renderTrigger: true,
               choices: [
-                ['mapbox://styles/mapbox/streets-v9', t('Streets')],
-                ['mapbox://styles/mapbox/dark-v9', t('Dark')],
-                ['mapbox://styles/mapbox/light-v9', t('Light')],
+                ['mapbox://styles/mapbox/streets-v9', 'Streets'],
+                ['mapbox://styles/mapbox/dark-v9', 'Dark'],
+                ['mapbox://styles/mapbox/light-v9', 'Light'],
                 [
                   'mapbox://styles/mapbox/satellite-streets-v9',
-                  t('Satellite Streets'),
+                  'Satellite Streets',
                 ],
-                ['mapbox://styles/mapbox/satellite-v9', t('Satellite')],
-                ['mapbox://styles/mapbox/outdoors-v9', t('Outdoors')],
+                ['mapbox://styles/mapbox/satellite-v9', 'Satellite'],
+                ['mapbox://styles/mapbox/outdoors-v9', 'Outdoors'],
               ],
               default: 'mapbox://styles/mapbox/light-v9',
               description: t('Base layer map style'),

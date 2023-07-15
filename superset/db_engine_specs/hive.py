@@ -14,15 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from __future__ import annotations
-
 import logging
 import os
 import re
 import tempfile
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from urllib import parse
 
 import numpy as np
@@ -30,7 +28,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from flask import current_app, g
-from sqlalchemy import Column, text, types
+from sqlalchemy import Column, text
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.url import URL
@@ -45,13 +43,12 @@ from superset.exceptions import SupersetException
 from superset.extensions import cache_manager
 from superset.models.sql_lab import Query
 from superset.sql_parse import ParsedQuery, Table
+from superset.utils import core as utils
 
 if TYPE_CHECKING:
     # prevent circular imports
-    from pyhive.hive import Cursor
-    from TCLIService.ttypes import TFetchOrientation
-
     from superset.models.core import Database
+
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +93,7 @@ class HiveEngineSpec(PrestoEngineSpec):
     engine_name = "Apache Hive"
     max_column_name_length = 767
     allows_alias_to_source_column = True
-    allows_hidden_orderby_agg = False
-
-    supports_dynamic_schema = True
+    allows_hidden_ordeby_agg = False
 
     # When running `SHOW FUNCTIONS`, what is the name of the column with the
     # function names?
@@ -124,7 +119,7 @@ class HiveEngineSpec(PrestoEngineSpec):
     jobs_stats_r = re.compile(r".*INFO.*Total jobs = (?P<max_jobs>[0-9]+)")
     # 17/02/07 19:37:08 INFO ql.Driver: Launching Job 2 out of 5
     launching_job_r = re.compile(
-        ".*INFO.*Launching Job (?P<job_number>[0-9]+) out of (?P<max_jobs>[0-9]+)"
+        ".*INFO.*Launching Job (?P<job_number>[0-9]+) out of " "(?P<max_jobs>[0-9]+)"
     )
     # 17/02/07 19:36:58 INFO exec.Task: 2017-02-07 19:36:58,152 Stage-18
     # map = 0%,  reduce = 0%
@@ -144,10 +139,18 @@ class HiveEngineSpec(PrestoEngineSpec):
             ttypes as patched_ttypes,
         )
 
+        from superset.db_engines import hive as patched_hive
+
         hive.TCLIService = patched_TCLIService
         hive.constants = patched_constants
         hive.ttypes = patched_ttypes
-        hive.Cursor.fetch_logs = fetch_logs
+        hive.Cursor.fetch_logs = patched_hive.fetch_logs
+
+    @classmethod
+    def get_all_datasource_names(
+        cls, database: "Database", datasource_type: str
+    ) -> List[utils.DatasourceName]:
+        return BaseEngineSpec.get_all_datasource_names(database, datasource_type)
 
     @classmethod
     def fetch_data(
@@ -189,10 +192,13 @@ class HiveEngineSpec(PrestoEngineSpec):
         :param to_sql_kwargs: The kwargs to be passed to pandas.DataFrame.to_sql` method
         """
 
+        engine = cls.get_engine(database)
+
         if to_sql_kwargs["if_exists"] == "append":
             raise SupersetException("Append operation not currently supported")
 
         if to_sql_kwargs["if_exists"] == "fail":
+
             # Ensure table doesn't already exist.
             if table.schema:
                 table_exists = not database.get_df(
@@ -206,10 +212,9 @@ class HiveEngineSpec(PrestoEngineSpec):
             if table_exists:
                 raise SupersetException("Table already exists")
         elif to_sql_kwargs["if_exists"] == "replace":
-            with cls.get_engine(database) as engine:
-                engine.execute(f"DROP TABLE IF EXISTS {str(table)}")
+            engine.execute(f"DROP TABLE IF EXISTS {str(table)}")
 
-        def _get_hive_type(dtype: np.dtype[Any]) -> str:
+        def _get_hive_type(dtype: np.dtype) -> str:
             hive_type_by_dtype = {
                 np.dtype("bool"): "BOOLEAN",
                 np.dtype("float64"): "DOUBLE",
@@ -228,60 +233,47 @@ class HiveEngineSpec(PrestoEngineSpec):
         ) as file:
             pq.write_table(pa.Table.from_pandas(df), where=file.name)
 
-            with cls.get_engine(database) as engine:
-                engine.execute(
-                    text(
-                        f"""
-                        CREATE TABLE {str(table)} ({schema_definition})
-                        STORED AS PARQUET
-                        LOCATION :location
-                        """
-                    ),
-                    location=upload_to_s3(
-                        filename=file.name,
-                        upload_prefix=current_app.config[
-                            "CSV_TO_HIVE_UPLOAD_DIRECTORY_FUNC"
-                        ](database, g.user, table.schema),
-                        table=table,
-                    ),
-                )
+            engine.execute(
+                text(
+                    f"""
+                    CREATE TABLE {str(table)} ({schema_definition})
+                    STORED AS PARQUET
+                    LOCATION :location
+                    """
+                ),
+                location=upload_to_s3(
+                    filename=file.name,
+                    upload_prefix=current_app.config[
+                        "CSV_TO_HIVE_UPLOAD_DIRECTORY_FUNC"
+                    ](database, g.user, table.schema),
+                    table=table,
+                ),
+            )
 
     @classmethod
     def convert_dttm(
         cls, target_type: str, dttm: datetime, db_extra: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
-        sqla_type = cls.get_sqla_column_type(target_type)
-
-        if isinstance(sqla_type, types.Date):
+        tt = target_type.upper()
+        if tt == utils.TemporalType.DATE:
             return f"CAST('{dttm.date().isoformat()}' AS DATE)"
-        if isinstance(sqla_type, types.TIMESTAMP):
+        if tt == utils.TemporalType.TIMESTAMP:
             return f"""CAST('{dttm
                 .isoformat(sep=" ", timespec="microseconds")}' AS TIMESTAMP)"""
         return None
 
     @classmethod
-    def adjust_engine_params(
-        cls,
-        uri: URL,
-        connect_args: Dict[str, Any],
-        catalog: Optional[str] = None,
-        schema: Optional[str] = None,
-    ) -> Tuple[URL, Dict[str, Any]]:
-        if schema:
-            uri = uri.set(database=parse.quote(schema, safe=""))
-
-        return uri, connect_args
+    def epoch_to_dttm(cls) -> str:
+        return "from_unixtime({col})"
 
     @classmethod
-    def get_schema_from_engine_params(
-        cls,
-        sqlalchemy_uri: URL,
-        connect_args: Dict[str, Any],
-    ) -> Optional[str]:
-        """
-        Return the configured schema.
-        """
-        return parse.unquote(sqlalchemy_uri.database)
+    def adjust_database_uri(
+        cls, uri: URL, selected_schema: Optional[str] = None
+    ) -> URL:
+        if selected_schema:
+            uri = uri.set(database=parse.quote(selected_schema, safe=""))
+
+        return uri
 
     @classmethod
     def _extract_error_message(cls, ex: Exception) -> str:
@@ -323,7 +315,7 @@ class HiveEngineSpec(PrestoEngineSpec):
         return int(progress)
 
     @classmethod
-    def get_tracking_url_from_logs(cls, log_lines: List[str]) -> Optional[str]:
+    def get_tracking_url(cls, log_lines: List[str]) -> Optional[str]:
         lkp = "Tracking URL = "
         for line in log_lines:
             if lkp in line:
@@ -374,11 +366,18 @@ class HiveEngineSpec(PrestoEngineSpec):
                     query.progress = progress
                     needs_commit = True
                 if not tracking_url:
-                    tracking_url = cls.get_tracking_url_from_logs(log_lines)
+                    tracking_url = cls.get_tracking_url(log_lines)
                     if tracking_url:
                         job_id = tracking_url.split("/")[-2]
                         logger.info(
                             "Query %s: Found the tracking url: %s",
+                            str(query_id),
+                            tracking_url,
+                        )
+                        transformer = current_app.config["TRACKING_URL_TRANSFORMER"]
+                        tracking_url = transformer(tracking_url)
+                        logger.info(
+                            "Query %s: Transformation applied: %s",
                             str(query_id),
                             tracking_url,
                         )
@@ -394,15 +393,7 @@ class HiveEngineSpec(PrestoEngineSpec):
                     last_log_line = len(log_lines)
                 if needs_commit:
                     session.commit()
-            if sleep_interval := current_app.config.get("HIVE_POLL_INTERVAL"):
-                logger.warning(
-                    "HIVE_POLL_INTERVAL is deprecated and will be removed in 3.0. Please use DB_POLL_INTERVAL_SECONDS instead"
-                )
-            else:
-                sleep_interval = current_app.config["DB_POLL_INTERVAL_SECONDS"].get(
-                    cls.engine, 5
-                )
-            time.sleep(sleep_interval)
+            time.sleep(current_app.config["HIVE_POLL_INTERVAL"])
             polled = cursor.poll()
 
     @classmethod
@@ -418,7 +409,7 @@ class HiveEngineSpec(PrestoEngineSpec):
         schema: Optional[str],
         database: "Database",
         query: Select,
-        columns: Optional[List[Dict[str, Any]]] = None,
+        columns: Optional[List[Dict[str, str]]] = None,
     ) -> Optional[Select]:
         try:
             col_names, values = cls.latest_partition(
@@ -441,7 +432,7 @@ class HiveEngineSpec(PrestoEngineSpec):
         return BaseEngineSpec._get_fields(cols)  # pylint: disable=protected-access
 
     @classmethod
-    def latest_sub_partition(  # type: ignore
+    def latest_sub_partition(
         cls, table_name: str, schema: Optional[str], database: "Database", **kwargs: Any
     ) -> str:
         # TODO(bogdan): implement`
@@ -461,15 +452,12 @@ class HiveEngineSpec(PrestoEngineSpec):
     def _partition_query(  # pylint: disable=too-many-arguments
         cls,
         table_name: str,
-        schema: Optional[str],
-        indexes: List[Dict[str, Any]],
         database: "Database",
         limit: int = 0,
         order_by: Optional[List[Tuple[str, bool]]] = None,
         filters: Optional[Dict[Any, Any]] = None,
     ) -> str:
-        full_table_name = f"{schema}.{table_name}" if schema else table_name
-        return f"SHOW PARTITIONS {full_table_name}"
+        return f"SHOW PARTITIONS {table_name}"
 
     @classmethod
     def select_star(  # pylint: disable=too-many-arguments
@@ -510,7 +498,7 @@ class HiveEngineSpec(PrestoEngineSpec):
         :param username: Effective username
         """
         # Do nothing in the URL object since instead this should modify
-        # the configuration dictionary. See get_configuration_for_impersonation
+        # the configuraiton dictionary. See get_configuration_for_impersonation
         return url
 
     @classmethod
@@ -589,92 +577,10 @@ class HiveEngineSpec(PrestoEngineSpec):
     def has_implicit_cancel(cls) -> bool:
         """
         Return True if the live cursor handles the implicit cancelation of the query,
-        False otherwise.
+        False otherise.
 
         :return: Whether the live cursor implicitly cancels the query
         :see: handle_cursor
         """
 
         return True
-
-    @classmethod
-    def get_view_names(
-        cls,
-        database: "Database",
-        inspector: Inspector,
-        schema: Optional[str],
-    ) -> Set[str]:
-        """
-        Get all the view names within the specified schema.
-
-        Per the SQLAlchemy definition if the schema is omitted the database’s default
-        schema is used, however some dialects infer the request as schema agnostic.
-
-        Note that PyHive's Hive SQLAlchemy dialect does not adhere to the specification
-        where the `get_view_names` method returns both real tables and views. Futhermore
-        the dialect wrongfully infers the request as schema agnostic when the schema is
-        omitted.
-
-        :param database: The database to inspect
-        :param inspector: The SQLAlchemy inspector
-        :param schema: The schema to inspect
-        :returns: The view names
-        """
-
-        sql = "SHOW VIEWS"
-
-        if schema:
-            sql += f" IN `{schema}`"
-
-        with database.get_raw_connection(schema=schema) as conn:
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            return {row[0] for row in results}
-
-
-# TODO: contribute back to pyhive.
-def fetch_logs(  # pylint: disable=protected-access
-    self: "Cursor",
-    _max_rows: int = 1024,
-    orientation: Optional["TFetchOrientation"] = None,
-) -> str:
-    """Mocked. Retrieve the logs produced by the execution of the query.
-    Can be called multiple times to fetch the logs produced after
-    the previous call.
-    :returns: list<str>
-    :raises: ``ProgrammingError`` when no query has been started
-    .. note::
-        This is not a part of DB-API.
-    """
-    # pylint: disable=import-outside-toplevel
-    from pyhive import hive
-    from TCLIService import ttypes
-    from thrift import Thrift
-
-    orientation = orientation or ttypes.TFetchOrientation.FETCH_NEXT
-    try:
-        req = ttypes.TGetLogReq(operationHandle=self._operationHandle)
-        logs = self._connection.client.GetLog(req).log
-        return logs
-    # raised if Hive is used
-    except (ttypes.TApplicationException, Thrift.TApplicationException) as ex:
-        if self._state == self._STATE_NONE:
-            raise hive.ProgrammingError("No query yet") from ex
-        logs = []
-        while True:
-            req = ttypes.TFetchResultsReq(
-                operationHandle=self._operationHandle,
-                orientation=ttypes.TFetchOrientation.FETCH_NEXT,
-                maxRows=self.arraysize,
-                fetchType=1,  # 0: results, 1: logs
-            )
-            response = self._connection.client.FetchResults(req)
-            hive._check_status(response)
-            assert not response.results.rows, "expected data in columnar format"
-            assert len(response.results.columns) == 1, response.results.columns
-            new_logs = hive._unwrap_column(response.results.columns[0])
-            logs += new_logs
-            if not new_logs:
-                break
-        return "\n".join(logs)

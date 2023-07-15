@@ -21,7 +21,7 @@ import computeBoundsFromPoints from './computeBoundsFromPoints';
 import { Point } from '../types';
 
 export type Viewport = {
-  longitude: number;
+  longtitude: number;
   latitude: number;
   zoom: number;
   bearing?: number;

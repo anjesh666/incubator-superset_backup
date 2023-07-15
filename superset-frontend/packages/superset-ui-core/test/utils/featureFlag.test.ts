@@ -16,37 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import mockConsole from 'jest-mock-console';
-import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
-it('returns false and raises console error if feature flags have not been initialized', () => {
-  mockConsole();
-  Object.defineProperty(window, 'featureFlags', {
-    value: undefined,
+import { FeatureFlag, isFeatureEnabled } from '@superset-ui/core';
+
+describe('isFeatureFlagEnabled', () => {
+  window.featureFlags = {
+    [FeatureFlag.CLIENT_CACHE]: true,
+  };
+  it('returns false for unset feature flag', () => {
+    expect(
+      isFeatureEnabled(FeatureFlag.ALLOW_DASHBOARD_DOMAIN_SHARDING),
+    ).toEqual(false);
   });
 
-  expect(isFeatureEnabled(FeatureFlag.DRILL_BY)).toEqual(false);
-  expect(console.error).toHaveBeenCalled();
-  // @ts-expect-error
-  expect(console.error.mock.calls[0][0]).toEqual(
-    'Failed to query feature flag DRILL_BY',
-  );
-});
-
-it('returns false for unset feature flag', () => {
-  Object.defineProperty(window, 'featureFlags', {
-    value: {},
+  it('returns true for set feature flag', () => {
+    expect(isFeatureEnabled(FeatureFlag.CLIENT_CACHE)).toEqual(true);
   });
-
-  expect(isFeatureEnabled(FeatureFlag.DRILL_BY)).toEqual(false);
-});
-
-it('returns true for set feature flag', () => {
-  Object.defineProperty(window, 'featureFlags', {
-    value: {
-      CLIENT_CACHE: true,
-    },
-  });
-
-  expect(isFeatureEnabled(FeatureFlag.CLIENT_CACHE)).toEqual(true);
 });

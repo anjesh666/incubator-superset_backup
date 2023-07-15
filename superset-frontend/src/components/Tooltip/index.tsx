@@ -19,13 +19,8 @@
 import React from 'react';
 import { useTheme, css } from '@superset-ui/core';
 import { Tooltip as AntdTooltip } from 'antd';
-import {
-  TooltipProps,
-  TooltipPlacement as AntdTooltipPlacement,
-} from 'antd/lib/tooltip';
+import { TooltipProps } from 'antd/lib/tooltip';
 import { Global } from '@emotion/react';
-
-export type TooltipPlacement = AntdTooltipPlacement;
 
 export const Tooltip = (props: TooltipProps) => {
   const theme = useTheme();

@@ -19,7 +19,7 @@
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { render, screen } from 'spec/helpers/testing-library';
-import { Indicator } from 'src/dashboard/components/nativeFilters/selectors';
+import { Indicator } from 'src/dashboard/components/FiltersBadge/selectors';
 import FilterIndicator from '.';
 
 const createProps = () => ({
@@ -43,9 +43,9 @@ test('Should render', () => {
   render(<FilterIndicator {...props} />);
 
   expect(
-    screen.getByRole('button', { name: 'Vaccine Approach' }),
+    screen.getByRole('button', { name: 'search Vaccine Approach' }),
   ).toBeInTheDocument();
-  expect(screen.getByRole('img')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'search' })).toBeInTheDocument();
 });
 
 test('Should call "onClick"', () => {
@@ -53,7 +53,9 @@ test('Should call "onClick"', () => {
   render(<FilterIndicator {...props} />);
 
   expect(props.onClick).toBeCalledTimes(0);
-  userEvent.click(screen.getByRole('button', { name: 'Vaccine Approach' }));
+  userEvent.click(
+    screen.getByRole('button', { name: 'search Vaccine Approach' }),
+  );
   expect(props.onClick).toBeCalledTimes(1);
 });
 
@@ -64,7 +66,7 @@ test('Should render "value"', () => {
 
   expect(
     screen.getByRole('button', {
-      name: 'Vaccine Approach: any, string',
+      name: 'search Vaccine Approach: any, string',
     }),
   ).toBeInTheDocument();
 });
@@ -75,7 +77,9 @@ test('Should render with default props', () => {
   render(<FilterIndicator indicator={props.indicator} />);
 
   expect(
-    screen.getByRole('button', { name: 'Vaccine Approach' }),
+    screen.getByRole('button', { name: 'search Vaccine Approach' }),
   ).toBeInTheDocument();
-  userEvent.click(screen.getByRole('button', { name: 'Vaccine Approach' }));
+  userEvent.click(
+    screen.getByRole('button', { name: 'search Vaccine Approach' }),
+  );
 });

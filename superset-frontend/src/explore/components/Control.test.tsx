@@ -61,7 +61,7 @@ describe('Control', () => {
   it('render null if type is not valid', () => {
     render(
       setup({
-        type: 'UnknownControl',
+        type: 'UnkownControl',
       }),
     );
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();

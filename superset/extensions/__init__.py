@@ -16,6 +16,7 @@
 # under the License.
 import json
 import os
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import celery
@@ -27,8 +28,6 @@ from flask_talisman import Talisman
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.local import LocalProxy
 
-from superset.extensions.ssh import SSHManagerFactory
-from superset.extensions.stats_logger import BaseStatsLoggerManager
 from superset.utils.async_query_manager import AsyncQueryManager
 from superset.utils.cache_manager import CacheManager
 from superset.utils.encrypt import EncryptedFieldFactory
@@ -107,7 +106,7 @@ class ProfilingExtension:  # pylint: disable=too-few-public-methods
         self.interval = interval
 
     def init_app(self, app: Flask) -> None:
-        app.wsgi_app = SupersetProfiler(app.wsgi_app, self.interval)
+        app.wsgi_app = SupersetProfiler(app.wsgi_app, self.interval)  # type: ignore
 
 
 APP_DIR = os.path.join(os.path.dirname(__file__), os.path.pardir)
@@ -127,6 +126,4 @@ migrate = Migrate()
 profiling = ProfilingExtension()
 results_backend_manager = ResultsBackendManager()
 security_manager = LocalProxy(lambda: appbuilder.sm)
-ssh_manager_factory = SSHManagerFactory()
-stats_logger_manager = BaseStatsLoggerManager()
 talisman = Talisman()

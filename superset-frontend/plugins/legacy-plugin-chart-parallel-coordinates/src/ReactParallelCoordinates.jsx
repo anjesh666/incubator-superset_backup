@@ -23,17 +23,17 @@ import Component from './ParallelCoordinates';
 
 const ReactComponent = reactify(Component);
 
-const ParallelCoordinates = ({ className, ...otherProps }) => (
+const ParallelCoordianes = ({ className, ...otherProps }) => (
   <div className={className}>
     <ReactComponent {...otherProps} />
   </div>
 );
 
-ParallelCoordinates.propTypes = {
+ParallelCoordianes.propTypes = {
   className: PropTypes.string.isRequired,
 };
 
-export default styled(ParallelCoordinates)`
+export default styled(ParallelCoordianes)`
   ${({ theme }) => `
     .superset-legacy-chart-parallel-coordinates {
       div.grid {

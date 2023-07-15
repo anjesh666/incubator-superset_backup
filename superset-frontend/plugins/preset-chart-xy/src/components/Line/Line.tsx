@@ -106,15 +106,11 @@ export interface SeriesValue {
 const CIRCLE_STYLE = { strokeWidth: 1.5 };
 
 export default class LineChart extends PureComponent<Props> {
-  private createEncoder = lineEncoderFactory.createSelector() as (
-    encoding: Partial<LineEncoding>,
-  ) => LineEncoder;
+  private createEncoder = lineEncoderFactory.createSelector();
 
   private createAllSeries = createSelector(
-    [
-      (input: { encoder: LineEncoder; data: Dataset }) => input.encoder,
-      input => input.data,
-    ],
+    (input: { encoder: LineEncoder; data: Dataset }) => input.encoder,
+    input => input.data,
     (encoder, data) => {
       const { channels } = encoder;
       const fieldNames = encoder.getGroupBys();

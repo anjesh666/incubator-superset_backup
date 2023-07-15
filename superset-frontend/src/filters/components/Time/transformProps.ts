@@ -30,12 +30,9 @@ export default function transformProps(chartProps: ChartProps) {
     behaviors,
     filterState,
     inputRef,
-    displaySettings,
   } = chartProps;
   const {
     setDataMask = noOp,
-    setHoveredFilter = noOp,
-    unsetHoveredFilter = noOp,
     setFocusedFilter = noOp,
     unsetFocusedFilter = noOp,
     setFilterActive = noOp,
@@ -52,14 +49,10 @@ export default function transformProps(chartProps: ChartProps) {
     height,
     behaviors,
     setDataMask,
-    setHoveredFilter,
-    unsetHoveredFilter,
     setFocusedFilter,
     unsetFocusedFilter,
     setFilterActive,
     width,
     inputRef,
-    filterBarOrientation: displaySettings?.filterBarOrientation,
-    isOverflowingFilterBar: displaySettings?.isOverflowingFilterBar,
   };
 }

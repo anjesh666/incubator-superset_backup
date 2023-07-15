@@ -18,27 +18,28 @@
  */
 import React from 'react';
 import { act } from 'react-dom/test-utils';
+import configureStore from 'redux-mock-store';
 import { mount } from 'enzyme';
 import { Provider } from 'react-redux';
 import fetchMock from 'fetch-mock';
+import thunk from 'redux-thunk';
 import sinon from 'sinon';
 import { supersetTheme, ThemeProvider } from '@superset-ui/core';
 
 import waitForComponentToPaint from 'spec/helpers/waitForComponentToPaint';
-import { defaultStore as store } from 'spec/helpers/testing-library';
 import Modal from 'src/components/Modal';
 import { DatasourceModal } from 'src/components/Datasource';
 import DatasourceEditor from 'src/components/Datasource/DatasourceEditor';
 import * as featureFlags from 'src/featureFlags';
 import mockDatasource from 'spec/fixtures/mockDatasource';
-import { api } from 'src/hooks/apiResources/queryApi';
 
+const mockStore = configureStore([thunk]);
+const store = mockStore({});
 const datasource = mockDatasource['7__table'];
 
 const SAVE_ENDPOINT = 'glob:*/api/v1/dataset/7';
 const SAVE_PAYLOAD = { new: 'data' };
-const SAVE_DATASOURCE_ENDPOINT = 'glob:*/api/v1/dataset/7';
-const GET_DATASOURCE_ENDPOINT = SAVE_DATASOURCE_ENDPOINT;
+const SAVE_DATASOURCE_ENDPOINT = 'glob:*/datasource/save/';
 
 const mockedProps = {
   datasource,
@@ -76,9 +77,6 @@ describe('DatasourceModal', () => {
 
   afterAll(() => {
     isFeatureEnabledMock.restore();
-    act(() => {
-      store.dispatch(api.util.resetApiState());
-    });
   });
 
   it('renders', () => {
@@ -95,8 +93,7 @@ describe('DatasourceModal', () => {
 
   it('saves on confirm', async () => {
     const callsP = fetchMock.post(SAVE_ENDPOINT, SAVE_PAYLOAD);
-    fetchMock.put(SAVE_DATASOURCE_ENDPOINT, {});
-    fetchMock.get(GET_DATASOURCE_ENDPOINT, {});
+    fetchMock.post(SAVE_DATASOURCE_ENDPOINT, {});
     act(() => {
       wrapper
         .find('button[data-test="datasource-modal-save"]')
@@ -111,11 +108,7 @@ describe('DatasourceModal', () => {
       okButton.simulate('click');
     });
     await waitForComponentToPaint(wrapper);
-    // one call to PUT, then one to GET
-    const expected = [
-      'http://localhost/api/v1/dataset/7',
-      'http://localhost/api/v1/dataset/7',
-    ];
+    const expected = ['http://localhost/datasource/save/'];
     expect(callsP._calls.map(call => call[0])).toEqual(
       expected,
     ); /* eslint no-underscore-dangle: 0 */

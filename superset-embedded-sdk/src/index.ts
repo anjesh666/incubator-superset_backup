@@ -17,10 +17,7 @@
  * under the License.
  */
 
-import {
-  DASHBOARD_UI_FILTER_CONFIG_URL_PARAM_KEY,
-  IFRAME_COMMS_MESSAGE_TYPE
-} from './const';
+import { IFRAME_COMMS_MESSAGE_TYPE } from './const';
 
 // We can swap this out for the actual switchboard package once it gets published
 import { Switchboard } from '@superset-ui/switchboard';
@@ -37,11 +34,6 @@ export type UiConfigType = {
   hideTitle?: boolean
   hideTab?: boolean
   hideChartControls?: boolean
-  filters?: {
-    [key: string]: boolean | undefined
-    visible?: boolean
-    expanded?: boolean
-  }
 }
 
 export type EmbedDashboardParams = {
@@ -53,7 +45,7 @@ export type EmbedDashboardParams = {
   mountPoint: HTMLElement
   /** A function to fetch a guest token from the Host App's backend server */
   fetchGuestToken: GuestTokenFetchFn
-  /** The dashboard UI config: hideTitle, hideTab, hideChartControls, filters.visible, filters.expanded **/
+  /** The dashboard UI config: hideTitle, hideTab, hideChartControls **/
   dashboardUiConfig?: UiConfigType
   /** Are we in debug mode? */
   debug?: boolean
@@ -66,8 +58,6 @@ export type Size = {
 export type EmbeddedDashboard = {
   getScrollSize: () => Promise<Size>
   unmount: () => void
-  getDashboardPermalink: (anchor: string) => Promise<string>
-  getActiveTabs: () => Promise<string[]>
 }
 
 /**
@@ -109,23 +99,15 @@ export async function embedDashboard({
     return new Promise(resolve => {
       const iframe = document.createElement('iframe');
       const dashboardConfig = dashboardUiConfig ? `?uiConfig=${calculateConfig()}` : ""
-      const filterConfig = dashboardUiConfig?.filters || {}
-      const filterConfigKeys = Object.keys(filterConfig)
-      const filterConfigUrlParams = filterConfigKeys.length > 0
-        ? "&"
-        + filterConfigKeys
-          .map(key => DASHBOARD_UI_FILTER_CONFIG_URL_PARAM_KEY[key] + '=' + filterConfig[key]).join('&')
-        : ""
 
-      // set up the iframe's sandbox configuration
+      // setup the iframe's sandbox configuration
       iframe.sandbox.add("allow-same-origin"); // needed for postMessage to work
       iframe.sandbox.add("allow-scripts"); // obviously the iframe needs scripts
       iframe.sandbox.add("allow-presentation"); // for fullscreen charts
       iframe.sandbox.add("allow-downloads"); // for downloading charts as image
-      iframe.sandbox.add("allow-forms"); // for forms to submit
-      iframe.sandbox.add("allow-popups"); // for exporting charts as csv
-      // add these if it turns out we need them:
+      // add these ones if it turns out we need them:
       // iframe.sandbox.add("allow-top-navigation");
+      // iframe.sandbox.add("allow-forms");
 
       // add the event listener before setting src, to be 100% sure that we capture the load event
       iframe.addEventListener('load', () => {
@@ -149,14 +131,13 @@ export async function embedDashboard({
         resolve(new Switchboard({ port: ourPort, name: 'superset-embedded-sdk', debug }));
       });
 
-      iframe.src = `${supersetDomain}/embedded/${id}${dashboardConfig}${filterConfigUrlParams}`;
-      //@ts-ignore
+      iframe.src = `${supersetDomain}/embedded/${id}${dashboardConfig}`;
       mountPoint.replaceChildren(iframe);
       log('placed the iframe')
     });
   }
 
-  const [guestToken, ourPort]: [string, Switchboard] = await Promise.all([
+  const [guestToken, ourPort] = await Promise.all([
     fetchGuestToken(),
     mountIframe(),
   ]);
@@ -174,19 +155,13 @@ export async function embedDashboard({
 
   function unmount() {
     log('unmounting');
-    //@ts-ignore
     mountPoint.replaceChildren();
   }
 
   const getScrollSize = () => ourPort.get<Size>('getScrollSize');
-  const getDashboardPermalink = (anchor: string) =>
-    ourPort.get<string>('getDashboardPermalink', { anchor });
-  const getActiveTabs = () => ourPort.get<string[]>('getActiveTabs')
 
   return {
     getScrollSize,
     unmount,
-    getDashboardPermalink,
-    getActiveTabs,
   };
 }

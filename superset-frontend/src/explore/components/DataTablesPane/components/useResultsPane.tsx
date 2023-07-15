@@ -35,7 +35,7 @@ const Error = styled.pre`
   margin-top: ${({ theme }) => `${theme.gridUnit * 4}px`};
 `;
 
-const cache = new WeakMap();
+const cache = new WeakSet();
 
 export const useResultsPane = ({
   isRequest,
@@ -59,14 +59,6 @@ export const useResultsPane = ({
   useEffect(() => {
     // it's an invalid formData when gets a errorMessage
     if (errorMessage) return;
-    if (isRequest && cache.has(queryFormData)) {
-      setResultResp(ensureIsArray(cache.get(queryFormData)));
-      setResponseError('');
-      if (queryForce && actions) {
-        actions.setForceQuery(false);
-      }
-      setIsLoading(false);
-    }
     if (isRequest && !cache.has(queryFormData)) {
       setIsLoading(true);
       getChartDataRequest({
@@ -79,7 +71,7 @@ export const useResultsPane = ({
         .then(({ json }) => {
           setResultResp(ensureIsArray(json.result));
           setResponseError('');
-          cache.set(queryFormData, json.result);
+          cache.add(queryFormData);
           if (queryForce && actions) {
             actions.setForceQuery(false);
           }

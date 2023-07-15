@@ -179,7 +179,6 @@ export const OptionControlLabel = ({
   type,
   index,
   isExtra,
-  datasourceWarningMessage,
   tooltipTitle,
   multi = true,
   ...props
@@ -196,8 +195,7 @@ export const OptionControlLabel = ({
   type: string;
   index: number;
   isExtra?: boolean;
-  datasourceWarningMessage?: string;
-  tooltipTitle?: string;
+  tooltipTitle: string;
   multi?: boolean;
 }) => {
   const theme = useTheme();
@@ -316,18 +314,15 @@ export const OptionControlLabel = ({
         {isFunction && <Icons.FieldDerived />}
         {getLabelContent()}
       </Label>
-      {(!!datasourceWarningMessage || isExtra) && (
+      {isExtra && (
         <StyledInfoTooltipWithTrigger
           icon="exclamation-triangle"
           placement="top"
           bsStyle="warning"
-          tooltip={
-            datasourceWarningMessage ||
-            t(`
+          tooltip={t(`
                 This filter was inherited from the dashboard's context.
                 It won't be saved when saving the chart.
-              `)
-          }
+              `)}
         />
       )}
       {withCaret && (

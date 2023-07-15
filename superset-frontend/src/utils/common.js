@@ -36,6 +36,17 @@ export const SHORT_TIME = 'h:m a';
 
 const DATETIME_FORMATTER = getTimeFormatter(TimeFormats.DATABASE_DATETIME);
 
+export function getParamFromQuery(query, param) {
+  const vars = query.split('&');
+  for (let i = 0; i < vars.length; i += 1) {
+    const pair = vars[i].split('=');
+    if (decodeURIComponent(pair[0]) === param) {
+      return decodeURIComponent(pair[1]);
+    }
+  }
+  return null;
+}
+
 export function storeQuery(query) {
   return SupersetClient.post({
     endpoint: '/kv/store/',
@@ -55,10 +66,10 @@ export function optionLabel(opt) {
     return EMPTY_STRING;
   }
   if (opt === true) {
-    return TRUE_STRING;
+    return '<true>';
   }
   if (opt === false) {
-    return FALSE_STRING;
+    return '<false>';
   }
   if (typeof opt !== 'string' && opt.toString) {
     return opt.toString();
@@ -78,21 +89,15 @@ export function optionFromValue(opt) {
   return { value: optionValue(opt), label: optionLabel(opt) };
 }
 
-function getColumnName(column) {
-  return column.name || column;
-}
-
 export function prepareCopyToClipboardTabularData(data, columns) {
-  let result = columns.length
-    ? `${columns.map(getColumnName).join('\t')}\n`
-    : '';
+  let result = '';
   for (let i = 0; i < data.length; i += 1) {
     const row = {};
     for (let j = 0; j < columns.length; j += 1) {
       // JavaScript does not maintain the order of a mixed set of keys (i.e integers and strings)
       // the below function orders the keys based on the column names.
-      const key = getColumnName(columns[j]);
-      if (key in data[i]) {
+      const key = columns[j].name || columns[j];
+      if (data[i][key]) {
         row[j] = data[i][key];
       } else {
         row[j] = data[i][parseFloat(key)];
@@ -145,3 +150,5 @@ export const isSafari = () => {
 
   return userAgent && /^((?!chrome|android).)*safari/i.test(userAgent);
 };
+
+export const isNullish = value => value === null || value === undefined;

@@ -21,14 +21,14 @@ import {
   Behavior,
   ChartMetadata,
   ChartPlugin,
-  hasGenericChartAxes,
+  FeatureFlag,
+  isFeatureEnabled,
   t,
 } from '@superset-ui/core';
 import buildQuery from './buildQuery';
 import controlPanel from './controlPanel';
 import transformProps from './transformProps';
 import thumbnail from './images/thumbnail.png';
-import example from './images/example.jpg';
 import {
   EchartsMixedTimeseriesFormData,
   EchartsMixedTimeseriesProps,
@@ -54,14 +54,10 @@ export default class EchartsTimeseriesChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('./EchartsMixedTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t(
               'Visualize two different series using the same x-axis. Note that both series can be visualized with a different chart type (e.g. 1 using bars and 1 using a line).',
             )
@@ -74,8 +70,9 @@ export default class EchartsTimeseriesChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        exampleGallery: [{ url: example }],
-        name: hasGenericChartAxes ? t('Mixed Chart') : t('Mixed Time-Series'),
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
+          ? t('Mixed Chart')
+          : t('Mixed Time-Series'),
         thumbnail,
         tags: [
           t('Advanced-Analytics'),

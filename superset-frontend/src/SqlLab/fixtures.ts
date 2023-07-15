@@ -20,7 +20,6 @@ import sinon from 'sinon';
 import * as actions from 'src/SqlLab/actions/sqlLab';
 import { ColumnKeyTypeType } from 'src/SqlLab/components/ColumnElement';
 import { DatasourceType, QueryResponse, QueryState } from '@superset-ui/core';
-import { ISaveableDatasource } from 'src/SqlLab/components/SaveDatasetModal';
 
 export const mockedActions = sinon.stub({ ...actions });
 
@@ -178,30 +177,18 @@ export const table = {
 export const defaultQueryEditor = {
   id: 'dfsadfs',
   autorun: false,
-  dbId: undefined,
+  dbId: null,
   latestQueryId: null,
-  selectedText: undefined,
+  selectedText: null,
   sql: 'SELECT *\nFROM\nWHERE',
-  name: 'Untitled Query 1',
-  schema: 'main',
-  remoteId: null,
-  hideLeftBar: false,
-  templateParams: '{}',
-};
-
-export const extraQueryEditor1 = {
-  ...defaultQueryEditor,
-  id: 'diekd23',
-  sql: 'SELECT *\nFROM\nWHERE\nLIMIT',
-  name: 'Untitled Query 2',
-  selectedText: 'SELECT',
-};
-
-export const extraQueryEditor2 = {
-  ...defaultQueryEditor,
-  id: 'owkdi998',
-  sql: 'SELECT *\nFROM\nWHERE\nGROUP BY',
-  name: 'Untitled Query 3',
+  title: 'Untitled Query 1',
+  schemaOptions: [
+    {
+      value: 'main',
+      label: 'main',
+      title: 'main',
+    },
+  ],
 };
 
 export const queries = [
@@ -652,14 +639,13 @@ export const initialState = {
     alerts: [],
     queries: {},
     databases: {},
-    queryEditors: [defaultQueryEditor, extraQueryEditor1, extraQueryEditor2],
+    queryEditors: [defaultQueryEditor],
     tabHistory: [defaultQueryEditor.id],
     tables: [],
     workspaceQueries: [],
     queriesLastUpdate: 0,
     activeSouthPaneTab: 'Results',
     user: { user },
-    unsavedQueryEditor: {},
   },
   messageToasts: [],
   common: {
@@ -674,49 +660,13 @@ export const initialState = {
 };
 
 export const query = {
-  name: 'test query',
+  id: 'clientId2353',
   dbId: 1,
   sql: 'SELECT * FROM something',
-  description: 'test description',
-  schema: 'test schema',
-  resultsKey: 'test',
+  sqlEditorId: defaultQueryEditor.id,
+  tab: 'unimportant',
+  tempTable: null,
+  runAsync: false,
+  ctas: false,
+  cached: false,
 };
-
-export const queryId = 'clientId2353';
-
-export const testQuery: ISaveableDatasource = {
-  name: 'unimportant',
-  dbId: 1,
-  sql: 'SELECT *',
-  columns: [
-    {
-      column_name: 'Column 1',
-      type: DatasourceType.Query,
-      is_dttm: false,
-    },
-    {
-      column_name: 'Column 3',
-      type: DatasourceType.Query,
-      is_dttm: false,
-    },
-    {
-      column_name: 'Column 2',
-      type: DatasourceType.Query,
-      is_dttm: true,
-    },
-  ],
-};
-
-export const mockdatasets = [...new Array(3)].map((_, i) => ({
-  changed_by_name: 'user',
-  kind: i === 0 ? 'virtual' : 'physical', // ensure there is 1 virtual
-  changed_by_url: 'changed_by_url',
-  changed_by: 'user',
-  changed_on: new Date().toISOString(),
-  database_name: `db ${i}`,
-  explore_url: `/explore/?datasource_type=table&datasource_id=${i}`,
-  id: i,
-  schema: `schema ${i}`,
-  table_name: `coolest table ${i}`,
-  owners: [{ username: 'admin', userId: 1 }],
-}));

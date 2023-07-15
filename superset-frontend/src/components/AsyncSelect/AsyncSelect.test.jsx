@@ -19,7 +19,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import fetchMock from 'fetch-mock';
-import Select from 'src/components/DeprecatedSelect';
+import Select from 'src/components/Select';
 import AsyncSelect from 'src/components/AsyncSelect';
 
 describe('AsyncSelect', () => {

@@ -19,8 +19,11 @@
 import React from 'react';
 import { t } from '@superset-ui/core';
 import { ControlPanelSectionConfig } from '@superset-ui/chart-controls';
+import { formatSelectOptions } from 'src/explore/exploreUtils';
 
 export const datasourceAndVizType: ControlPanelSectionConfig = {
+  label: t('Visualization type'),
+  expanded: true,
   controlSetRows: [
     ['datasource'],
     ['viz_type'],
@@ -80,7 +83,7 @@ export const annotations: ControlPanelSectionConfig = {
           type: 'AnnotationLayerControl',
           label: '',
           default: [],
-          description: t('Annotation layers'),
+          description: 'Annotation layers',
           renderTrigger: true,
           tabOverride: 'data',
         },
@@ -130,13 +133,13 @@ export const NVD3TimeSeries: ControlPanelSectionConfig[] = [
             type: 'SelectControl',
             label: t('Rolling function'),
             default: 'None',
-            choices: [
-              ['None', t('None')],
-              ['mean', t('mean')],
-              ['sum', t('sum')],
-              ['std', t('std')],
-              ['cumsum', t('cumsum')],
-            ],
+            choices: formatSelectOptions([
+              'None',
+              'mean',
+              'sum',
+              'std',
+              'cumsum',
+            ]),
             description: t(
               'Defines a rolling window function to apply, works along ' +
                 'with the [Periods] text box',
@@ -180,22 +183,22 @@ export const NVD3TimeSeries: ControlPanelSectionConfig[] = [
             multi: true,
             freeForm: true,
             label: t('Time shift'),
-            choices: [
-              ['1 day', t('1 day')],
-              ['1 week', t('1 week')],
-              ['28 days', t('28 days')],
-              ['30 days', t('30 days')],
-              ['52 weeks', t('52 weeks')],
-              ['1 year', t('1 year')],
-              ['104 weeks', t('104 weeks')],
-              ['2 years', t('2 years')],
-              ['156 weeks', t('156 weeks')],
-              ['3 years', t('3 years')],
-            ],
+            choices: formatSelectOptions([
+              '1 day',
+              '1 week',
+              '28 days',
+              '30 days',
+              '52 weeks',
+              '1 year',
+              '104 weeks',
+              '2 years',
+              '156 weeks',
+              '3 years',
+            ]),
             description: t(
               'Overlay one or more timeseries from a ' +
                 'relative time period. Expects relative time deltas ' +
-                'in natural language (example: 24 hours, 7 days, ' +
+                'in natural language (example:  24 hours, 7 days, ' +
                 '52 weeks, 365 days). Free text is supported.',
             ),
           },
@@ -207,10 +210,10 @@ export const NVD3TimeSeries: ControlPanelSectionConfig[] = [
             label: t('Calculation type'),
             default: 'values',
             choices: [
-              ['values', t('Actual values')],
-              ['absolute', t('Difference')],
-              ['percentage', t('Percentage change')],
-              ['ratio', t('Ratio')],
+              ['values', 'Actual values'],
+              ['absolute', 'Difference'],
+              ['percentage', 'Percentage change'],
+              ['ratio', 'Ratio'],
             ],
             description: t(
               'How to display time shifts: as individual lines; as the ' +
@@ -229,14 +232,7 @@ export const NVD3TimeSeries: ControlPanelSectionConfig[] = [
             freeForm: true,
             label: t('Rule'),
             default: null,
-            choices: [
-              ['1T', t('1T')],
-              ['1H', t('1H')],
-              ['1D', t('1D')],
-              ['7D', t('7D')],
-              ['1M', t('1M')],
-              ['1AS', t('1AS')],
-            ],
+            choices: formatSelectOptions(['1T', '1H', '1D', '7D', '1M', '1AS']),
             description: t('Pandas resample rule'),
           },
         },
@@ -247,14 +243,14 @@ export const NVD3TimeSeries: ControlPanelSectionConfig[] = [
             freeForm: true,
             label: t('Method'),
             default: null,
-            choices: [
-              ['asfreq', t('asfreq')],
-              ['bfill', t('bfill')],
-              ['ffill', t('ffill')],
-              ['median', t('median')],
-              ['mean', t('mean')],
-              ['sum', t('sum')],
-            ],
+            choices: formatSelectOptions([
+              'asfreq',
+              'bfill',
+              'ffill',
+              'median',
+              'mean',
+              'sum',
+            ]),
             description: t('Pandas resample method'),
           },
         },

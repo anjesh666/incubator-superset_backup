@@ -18,7 +18,6 @@
  */
 import { ControlSetItem, Dataset } from '@superset-ui/chart-controls';
 import { t } from '@superset-ui/core';
-import { isEmpty } from 'lodash';
 import { isAggMode, isRawMode } from './shared';
 
 export const orderByControlSetItem: ControlSetItem = {
@@ -46,12 +45,7 @@ export const orderDescendingControlSetItem: ControlSetItem = {
     label: t('Sort descending'),
     default: true,
     description: t('Whether to sort descending or ascending'),
-    visibility: ({ controls }) =>
-      !!(
-        isAggMode({ controls }) &&
-        controls?.timeseries_limit_metric.value &&
-        !isEmpty(controls?.timeseries_limit_metric.value)
-      ),
+    visibility: isAggMode,
     resetOnHide: false,
   },
 };

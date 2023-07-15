@@ -21,17 +21,9 @@ import { EchartsProps } from '../types';
 import Echart from '../components/Echart';
 
 export default function EchartsGraph({
-  echartOptions,
   height,
-  refs,
   width,
+  echartOptions,
 }: EchartsProps) {
-  return (
-    <Echart
-      refs={refs}
-      height={height}
-      width={width}
-      echartOptions={echartOptions}
-    />
-  );
+  return <Echart height={height} width={width} echartOptions={echartOptions} />;
 }

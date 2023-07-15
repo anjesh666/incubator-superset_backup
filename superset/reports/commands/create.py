@@ -18,12 +18,13 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from flask_babel import gettext as _
+from flask_appbuilder.models.sqla import Model
 from marshmallow import ValidationError
 
 from superset.commands.base import CreateMixin
 from superset.dao.exceptions import DAOCreateFailedError
 from superset.databases.dao import DatabaseDAO
+from superset.models.reports import ReportCreationMethod, ReportScheduleType
 from superset.reports.commands.base import BaseReportScheduleCommand
 from superset.reports.commands.exceptions import (
     DatabaseNotFoundValidationError,
@@ -35,12 +36,6 @@ from superset.reports.commands.exceptions import (
     ReportScheduleRequiredTypeValidationError,
 )
 from superset.reports.dao import ReportScheduleDAO
-from superset.reports.models import (
-    ReportCreationMethod,
-    ReportSchedule,
-    ReportScheduleType,
-)
-from superset.reports.types import ReportScheduleExtra
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +44,7 @@ class CreateReportScheduleCommand(CreateMixin, BaseReportScheduleCommand):
     def __init__(self, data: Dict[str, Any]):
         self._properties = data.copy()
 
-    def run(self) -> ReportSchedule:
+    def run(self) -> Model:
         self.validate()
         try:
             report_schedule = ReportScheduleDAO.create(self._properties)
@@ -117,29 +112,25 @@ class CreateReportScheduleCommand(CreateMixin, BaseReportScheduleCommand):
         except ValidationError as ex:
             exceptions.append(ex)
         if exceptions:
-            raise ReportScheduleInvalidError(exceptions=exceptions)
+            exception = ReportScheduleInvalidError()
+            exception.add_list(exceptions)
+            raise exception
 
     def _validate_report_extra(self, exceptions: List[ValidationError]) -> None:
-        extra: Optional[ReportScheduleExtra] = self._properties.get("extra")
+        extra = self._properties.get("extra")
         dashboard = self._properties.get("dashboard")
 
         if extra is None or dashboard is None:
             return
 
-        dashboard_state = extra.get("dashboard")
-        if not dashboard_state:
+        dashboard_tab_ids = extra.get("dashboard_tab_ids")
+        if dashboard_tab_ids is None:
             return
-
-        position_data = json.loads(dashboard.position_json or "{}")
-        active_tabs = dashboard_state.get("activeTabs") or []
-        anchor = dashboard_state.get("anchor")
-        invalid_tab_ids = set(active_tabs) - set(position_data.keys())
-        if anchor and anchor not in position_data:
-            invalid_tab_ids.add(anchor)
+        position_data = json.loads(dashboard.position_json)
+        invalid_tab_ids = [
+            tab_id for tab_id in dashboard_tab_ids if tab_id not in position_data
+        ]
         if invalid_tab_ids:
             exceptions.append(
-                ValidationError(
-                    _("Invalid tab ids: %s(tab_ids)", tab_ids=str(invalid_tab_ids)),
-                    "extra",
-                )
+                ValidationError(f"Invalid tab IDs selected: {invalid_tab_ids}", "extra")
             )

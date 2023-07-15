@@ -62,20 +62,9 @@ function UIFilters(
   return (
     <>
       {filters.map(
-        (
-          {
-            Header,
-            fetchSelects,
-            key,
-            id,
-            input,
-            paginate,
-            selects,
-            onFilterUpdate,
-          },
-          index,
-        ) => {
-          const initialValue = internalFilters?.[index]?.value;
+        ({ Header, fetchSelects, id, input, paginate, selects }, index) => {
+          const initialValue =
+            internalFilters[index] && internalFilters[index].value;
           if (input === 'select') {
             return (
               <SelectFilter
@@ -83,21 +72,11 @@ function UIFilters(
                 Header={Header}
                 fetchSelects={fetchSelects}
                 initialValue={initialValue}
-                key={key}
+                key={id}
                 name={id}
-                onSelect={(
-                  option: SelectOption | undefined,
-                  isClear?: boolean,
-                ) => {
-                  if (onFilterUpdate) {
-                    // Filter change triggers both onChange AND onClear, only want to track onChange
-                    if (!isClear) {
-                      onFilterUpdate(option);
-                    }
-                  }
-
-                  updateFilterValue(index, option);
-                }}
+                onSelect={(option: SelectOption | undefined) =>
+                  updateFilterValue(index, option)
+                }
                 paginate={paginate}
                 selects={selects}
               />
@@ -109,15 +88,9 @@ function UIFilters(
                 ref={filterRefs[index]}
                 Header={Header}
                 initialValue={initialValue}
-                key={key}
+                key={id}
                 name={id}
-                onSubmit={(value: string) => {
-                  if (onFilterUpdate) {
-                    onFilterUpdate(value);
-                  }
-
-                  updateFilterValue(index, value);
-                }}
+                onSubmit={(value: string) => updateFilterValue(index, value)}
               />
             );
           }
@@ -127,7 +100,7 @@ function UIFilters(
                 ref={filterRefs[index]}
                 Header={Header}
                 initialValue={initialValue}
-                key={key}
+                key={id}
                 name={id}
                 onSubmit={value => updateFilterValue(index, value)}
               />

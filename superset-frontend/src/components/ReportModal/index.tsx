@@ -93,9 +93,6 @@ type ReportObjectState = Partial<ReportObject> & {
   isSubmitting?: boolean;
 };
 
-// Same instance to be used in useEffects
-const EMPTY_OBJECT = {};
-
 function ReportModal({
   onHide,
   show = false,
@@ -150,10 +147,7 @@ function ReportModal({
     const resourceType = dashboardId
       ? CreationMethod.DASHBOARDS
       : CreationMethod.CHARTS;
-    return (
-      reportSelector(state, resourceType, dashboardId || chart?.id) ||
-      EMPTY_OBJECT
-    );
+    return reportSelector(state, resourceType, dashboardId || chart?.id);
   });
   const isEditMode = report && Object.keys(report).length;
 
@@ -279,7 +273,7 @@ function ReportModal({
             onChange: ({ target }: { target: HTMLInputElement }) =>
               setCurrentReport({ name: target.value }),
           }}
-          label={t('Report Name')}
+          label="Report Name"
           data-test="report-name-test"
         />
         <LabeledErrorBoundInput

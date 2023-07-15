@@ -16,18 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useEffect, useState } from 'react';
+import { connect } from 'react-redux';
+import { bindActionCreators } from 'redux';
 import PropTypes from 'prop-types';
 import { Tooltip } from 'src/components/Tooltip';
 import {
   CategoricalColorNamespace,
   css,
-  logging,
   SupersetClient,
   t,
-  tn,
 } from '@superset-ui/core';
+import { toggleActive, deleteActiveReport } from 'src/reports/actions/reports';
 import { chartPropShape } from 'src/dashboard/util/propShapes';
 import AlteredSliceTag from 'src/components/AlteredSliceTag';
 import Button from 'src/components/Button';
@@ -35,8 +35,6 @@ import Icons from 'src/components/Icons';
 import PropertiesModal from 'src/explore/components/PropertiesModal';
 import { sliceUpdated } from 'src/explore/actions/exploreActions';
 import { PageHeaderWithActions } from 'src/components/PageHeaderWithActions';
-import MetadataBar, { MetadataType } from 'src/components/MetadataBar';
-import { setSaveChartModalVisibility } from 'src/explore/actions/saveModalActions';
 import { useExploreAdditionalActionsMenu } from '../useExploreAdditionalActionsMenu';
 
 const propTypes = {
@@ -62,15 +60,6 @@ const saveButtonStyles = theme => css`
   }
 `;
 
-const additionalItemsStyles = theme => css`
-  display: flex;
-  align-items: center;
-  margin-left: ${theme.gridUnit}px;
-  & > span {
-    margin-right: ${theme.gridUnit * 3}px;
-  }
-`;
-
 export const ExploreChartHeader = ({
   dashboardId,
   slice,
@@ -82,54 +71,57 @@ export const ExploreChartHeader = ({
   canOverwrite,
   canDownload,
   isStarred,
+  sliceUpdated,
   sliceName,
+  onSaveChart,
   saveDisabled,
-  metadata,
 }) => {
-  const dispatch = useDispatch();
   const { latestQueryFormData, sliceFormData } = chart;
   const [isPropertiesModalOpen, setIsPropertiesModalOpen] = useState(false);
 
-  const updateCategoricalNamespace = async () => {
-    const { dashboards } = metadata || {};
-    const dashboard =
-      dashboardId && dashboards && dashboards.find(d => d.id === dashboardId);
+  const fetchChartDashboardData = async () => {
+    await SupersetClient.get({
+      endpoint: `/api/v1/chart/${slice.slice_id}`,
+    })
+      .then(res => {
+        const response = res?.json?.result;
+        if (response && response.dashboards && response.dashboards.length) {
+          const { dashboards } = response;
+          const dashboard =
+            dashboardId &&
+            dashboards.length &&
+            dashboards.find(d => d.id === dashboardId);
 
-    if (dashboard) {
-      try {
-        // Dashboards from metadata don't contain the json_metadata field
-        // to avoid unnecessary payload. Here we query for the dashboard json_metadata.
-        const response = await SupersetClient.get({
-          endpoint: `/api/v1/dashboard/${dashboard.id}`,
-        });
-        const result = response?.json?.result;
+          if (dashboard && dashboard.json_metadata) {
+            // setting the chart to use the dashboard custom label colors if any
+            const metadata = JSON.parse(dashboard.json_metadata);
+            const sharedLabelColors = metadata.shared_label_colors || {};
+            const customLabelColors = metadata.label_colors || {};
+            const mergedLabelColors = {
+              ...sharedLabelColors,
+              ...customLabelColors,
+            };
 
-        // setting the chart to use the dashboard custom label colors if any
-        const metadata = JSON.parse(result.json_metadata);
-        const sharedLabelColors = metadata.shared_label_colors || {};
-        const customLabelColors = metadata.label_colors || {};
-        const mergedLabelColors = {
-          ...sharedLabelColors,
-          ...customLabelColors,
-        };
+            const categoricalNamespace =
+              CategoricalColorNamespace.getNamespace();
 
-        const categoricalNamespace = CategoricalColorNamespace.getNamespace();
-
-        Object.keys(mergedLabelColors).forEach(label => {
-          categoricalNamespace.setColor(
-            label,
-            mergedLabelColors[label],
-            metadata.color_scheme,
-          );
-        });
-      } catch (error) {
-        logging.info(t('Unable to retrieve dashboard colors'));
-      }
-    }
+            Object.keys(mergedLabelColors).forEach(label => {
+              categoricalNamespace.setColor(
+                label,
+                mergedLabelColors[label],
+                metadata.color_scheme,
+              );
+            });
+          }
+        }
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
-    if (dashboardId) updateCategoricalNamespace();
+    if (dashboardId) {
+      fetchChartDashboardData();
+    }
   }, []);
 
   const openPropertiesModal = () => {
@@ -140,17 +132,6 @@ export const ExploreChartHeader = ({
     setIsPropertiesModalOpen(false);
   };
 
-  const showModal = useCallback(() => {
-    dispatch(setSaveChartModalVisibility(true));
-  }, [dispatch]);
-
-  const updateSlice = useCallback(
-    slice => {
-      dispatch(sliceUpdated(slice));
-    },
-    [dispatch],
-  );
-
   const [menu, isDropdownVisible, setIsDropdownVisible] =
     useExploreAdditionalActionsMenu(
       latestQueryFormData,
@@ -159,51 +140,7 @@ export const ExploreChartHeader = ({
       actions.redirectSQLLab,
       openPropertiesModal,
       ownState,
-      metadata?.dashboards,
     );
-
-  const metadataBar = useMemo(() => {
-    if (!metadata) {
-      return null;
-    }
-    const items = [];
-    items.push({
-      type: MetadataType.DASHBOARDS,
-      title:
-        metadata.dashboards.length > 0
-          ? tn(
-              'Added to 1 dashboard',
-              'Added to %s dashboards',
-              metadata.dashboards.length,
-              metadata.dashboards.length,
-            )
-          : t('Not added to any dashboard'),
-      description:
-        metadata.dashboards.length > 0
-          ? t(
-              'You can preview the list of dashboards in the chart settings dropdown.',
-            )
-          : undefined,
-    });
-    items.push({
-      type: MetadataType.LAST_MODIFIED,
-      value: metadata.changed_on_humanized,
-      modifiedBy: metadata.changed_by || t('Not available'),
-    });
-    items.push({
-      type: MetadataType.OWNER,
-      createdBy: metadata.created_by || t('Not available'),
-      owners: metadata.owners.length > 0 ? metadata.owners : t('None'),
-      createdOn: metadata.created_on_humanized,
-    });
-    if (slice?.description) {
-      items.push({
-        type: MetadataType.DESCRIPTION,
-        value: slice?.description,
-      });
-    }
-    return <MetadataBar items={items} tooltipPlacement="bottom" />;
-  }, [metadata, slice?.description]);
 
   const oldSliceName = slice?.slice_name;
   return (
@@ -233,19 +170,16 @@ export const ExploreChartHeader = ({
           showTooltip: true,
         }}
         titlePanelAdditionalItems={
-          <div css={additionalItemsStyles}>
-            {sliceFormData ? (
-              <AlteredSliceTag
-                className="altered"
-                origFormData={{
-                  ...sliceFormData,
-                  chartTitle: oldSliceName,
-                }}
-                currentFormData={{ ...formData, chartTitle: sliceName }}
-              />
-            ) : null}
-            {metadataBar}
-          </div>
+          sliceFormData ? (
+            <AlteredSliceTag
+              className="altered"
+              origFormData={{
+                ...sliceFormData,
+                chartTitle: oldSliceName,
+              }}
+              currentFormData={{ ...formData, chartTitle: sliceName }}
+            />
+          ) : null
         }
         rightPanelAdditionalItems={
           <Tooltip
@@ -259,7 +193,7 @@ export const ExploreChartHeader = ({
             <div>
               <Button
                 buttonStyle="secondary"
-                onClick={showModal}
+                onClick={onSaveChart}
                 disabled={saveDisabled}
                 data-test="query-save-button"
                 css={saveButtonStyles}
@@ -280,7 +214,7 @@ export const ExploreChartHeader = ({
         <PropertiesModal
           show={isPropertiesModalOpen}
           onHide={closePropertiesModal}
-          onSave={updateSlice}
+          onSave={sliceUpdated}
           slice={slice}
         />
       )}
@@ -290,4 +224,11 @@ export const ExploreChartHeader = ({
 
 ExploreChartHeader.propTypes = propTypes;
 
-export default ExploreChartHeader;
+function mapDispatchToProps(dispatch) {
+  return bindActionCreators(
+    { sliceUpdated, toggleActive, deleteActiveReport },
+    dispatch,
+  );
+}
+
+export default connect(null, mapDispatchToProps)(ExploreChartHeader);

@@ -44,51 +44,42 @@ class BaseDAO:
     """
     base_filter: Optional[BaseFilter] = None
     """
-    Child classes can register base filtering to be applied to all filter methods
+    Child classes can register base filtering to be aplied to all filter methods
     """
     id_column_name = "id"
 
     @classmethod
     def find_by_id(
-        cls,
-        model_id: Union[str, int],
-        session: Session = None,
-        skip_base_filter: bool = False,
+        cls, model_id: Union[str, int], session: Session = None
     ) -> Optional[Model]:
         """
         Find a model by id, if defined applies `base_filter`
         """
         session = session or db.session
         query = session.query(cls.model_cls)
-        if cls.base_filter and not skip_base_filter:
+        if cls.base_filter:
             data_model = SQLAInterface(cls.model_cls, session)
             query = cls.base_filter(  # pylint: disable=not-callable
                 cls.id_column_name, data_model
             ).apply(query, None)
-        id_column = getattr(cls.model_cls, cls.id_column_name)
+        id_filter = {cls.id_column_name: model_id}
         try:
-            return query.filter(id_column == model_id).one_or_none()
+            return query.filter_by(**id_filter).one_or_none()
         except StatementError:
             # can happen if int is passed instead of a string or similar
             return None
 
     @classmethod
-    def find_by_ids(
-        cls,
-        model_ids: Union[List[str], List[int]],
-        session: Session = None,
-        skip_base_filter: bool = False,
-    ) -> List[Model]:
+    def find_by_ids(cls, model_ids: Union[List[str], List[int]]) -> List[Model]:
         """
         Find a List of models by a list of ids, if defined applies `base_filter`
         """
         id_col = getattr(cls.model_cls, cls.id_column_name, None)
         if id_col is None:
             return []
-        session = session or db.session
-        query = session.query(cls.model_cls).filter(id_col.in_(model_ids))
-        if cls.base_filter and not skip_base_filter:
-            data_model = SQLAInterface(cls.model_cls, session)
+        query = db.session.query(cls.model_cls).filter(id_col.in_(model_ids))
+        if cls.base_filter:
+            data_model = SQLAInterface(cls.model_cls, db.session)
             query = cls.base_filter(  # pylint: disable=not-callable
                 cls.id_column_name, data_model
             ).apply(query, None)
@@ -194,14 +185,3 @@ class BaseDAO:
             db.session.rollback()
             raise DAODeleteFailedError(exception=ex) from ex
         return model
-
-    @classmethod
-    def bulk_delete(cls, models: List[Model], commit: bool = True) -> None:
-        try:
-            for model in models:
-                cls.delete(model, False)
-            if commit:
-                db.session.commit()
-        except SQLAlchemyError as ex:
-            db.session.rollback()
-            raise DAODeleteFailedError(exception=ex) from ex

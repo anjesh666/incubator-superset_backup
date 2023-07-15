@@ -21,7 +21,8 @@ import {
   Behavior,
   ChartMetadata,
   ChartPlugin,
-  hasGenericChartAxes,
+  FeatureFlag,
+  isFeatureEnabled,
   t,
 } from '@superset-ui/core';
 import {
@@ -56,14 +57,10 @@ export default class EchartsTimeseriesBarChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('../../EchartsTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t('Bar Charts are used to show metrics as a series of bars.')
           : t(
               'Time-series Bar Charts are used to show the changes in a metric over time as a series of bars.',
@@ -79,7 +76,9 @@ export default class EchartsTimeseriesBarChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        name: hasGenericChartAxes ? t('Bar Chart') : t('Time-series Bar Chart'),
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
+          ? t('Bar Chart v2')
+          : t('Time-series Bar Chart v2'),
         tags: [
           t('ECharts'),
           t('Predictive'),

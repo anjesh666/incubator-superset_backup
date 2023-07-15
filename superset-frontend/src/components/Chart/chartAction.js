@@ -19,9 +19,9 @@
 /* eslint no-undef: 'error' */
 /* eslint no-param-reassign: ["error", { "props": false }] */
 import moment from 'moment';
-import { FeatureFlag, isDefined, SupersetClient, t } from '@superset-ui/core';
+import { t, SupersetClient } from '@superset-ui/core';
 import { getControlsState } from 'src/explore/store';
-import { isFeatureEnabled } from 'src/featureFlags';
+import { isFeatureEnabled, FeatureFlag } from 'src/featureFlags';
 import {
   getAnnotationJsonUrl,
   getExploreUrl,
@@ -30,7 +30,10 @@ import {
   shouldUseLegacyApi,
   getChartDataUri,
 } from 'src/explore/exploreUtils';
-import { requiresQuery } from 'src/modules/AnnotationTypes';
+import {
+  requiresQuery,
+  ANNOTATION_SOURCE_TYPES,
+} from 'src/modules/AnnotationTypes';
 
 import { addDangerToast } from 'src/components/MessageToasts/actions';
 import { logEvent } from 'src/logger/actions';
@@ -136,7 +139,6 @@ const legacyChartDataRequest = async (
     ...requestParams,
     url,
     postPayload: { form_data: formData },
-    parseMethod: 'json-bigint',
   };
 
   const clientMethod =
@@ -194,7 +196,6 @@ const v1ChartDataRequest = async (
     url,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    parseMethod: 'json-bigint',
   };
 
   return SupersetClient.post(querySettings);
@@ -287,35 +288,26 @@ export function runAnnotationQuery({
         : undefined;
     }
 
-    const url = getAnnotationJsonUrl(annotation.value, force);
+    const isNative = annotation.sourceType === ANNOTATION_SOURCE_TYPES.NATIVE;
+    const url = getAnnotationJsonUrl(
+      annotation.value,
+      sliceFormData,
+      isNative,
+      force,
+    );
     const controller = new AbortController();
     const { signal } = controller;
 
     dispatch(annotationQueryStarted(annotation, controller, sliceKey));
 
-    const annotationIndex = fd?.annotation_layers?.findIndex(
-      it => it.name === annotation.name,
-    );
-    if (annotationIndex >= 0) {
-      fd.annotation_layers[annotationIndex].overrides = sliceFormData;
-    }
-
-    return SupersetClient.post({
+    return SupersetClient.get({
       url,
       signal,
       timeout: timeout * 1000,
-      headers: { 'Content-Type': 'application/json' },
-      jsonPayload: buildV1ChartDataPayload({
-        formData: fd,
-        force,
-        resultFormat: 'json',
-        resultType: 'full',
-      }),
     })
-      .then(({ json }) => {
-        const data = json?.result?.[0]?.annotation_data?.[annotation.name];
-        return dispatch(annotationQuerySuccess(annotation, { data }, sliceKey));
-      })
+      .then(({ json }) =>
+        dispatch(annotationQuerySuccess(annotation, json, sliceKey)),
+      )
       .catch(response =>
         getClientErrorObject(response).then(err => {
           if (err.statusText === 'timeout') {
@@ -611,27 +603,10 @@ export const getDatasourceSamples = async (
   datasourceId,
   force,
   jsonPayload,
-  perPage,
-  page,
 ) => {
+  const endpoint = `/datasource/samples?force=${force}&datasource_type=${datasourceType}&datasource_id=${datasourceId}`;
   try {
-    const searchParams = {
-      force,
-      datasource_type: datasourceType,
-      datasource_id: datasourceId,
-    };
-
-    if (isDefined(perPage) && isDefined(page)) {
-      searchParams.per_page = perPage;
-      searchParams.page = page;
-    }
-
-    const response = await SupersetClient.post({
-      endpoint: '/datasource/samples',
-      jsonPayload,
-      searchParams,
-    });
-
+    const response = await SupersetClient.post({ endpoint, jsonPayload });
     return response.json.result;
   } catch (err) {
     const clientError = await getClientErrorObject(err);

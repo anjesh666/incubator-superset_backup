@@ -16,9 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
+import React from 'react';
 import { TypedRegistry } from '../models';
 import { makeSingleton } from '../utils';
-import { Extensions } from './types';
+
+/**
+ * A function which returns text (or marked-up text)
+ * If what you want is a react component, don't use this. Use React.ComponentType instead.
+ */
+type ReturningDisplayable<P = void> = (props: P) => string | React.ReactElement;
+
+/**
+ * This type defines all available extensions of Superset's default UI.
+ * Namespace the keys here to follow the form of 'some_domain.functonality.item'.
+ * Take care to name your keys well, as the name describes what this extension point's role is in Superset.
+ *
+ * When defining a new option here, take care to keep any parameters to functions (or components) minimal.
+ * Any removal or alteration to a parameter will be considered a breaking change.
+ */
+export type Extensions = Partial<{
+  'embedded.documentation.description': ReturningDisplayable;
+  'embedded.documentation.url': string;
+  'navbar.right': React.ComponentType;
+  'welcome.banner': React.ComponentType;
+}>;
 
 /**
  * A registry containing extensions which can alter Superset's UI at specific points defined by Superset.

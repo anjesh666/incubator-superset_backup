@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { DatasourceType, testQueryResponse } from '@superset-ui/core';
+import { DatasourceType, QueryResponse, testQuery } from '@superset-ui/core';
 import { columnChoices } from '../../src';
 
 describe('columnChoices()', () => {
@@ -42,7 +42,7 @@ describe('columnChoices()', () => {
           },
         ],
         verbose_map: {},
-        column_formats: { fiz: 'NUMERIC', about: 'STRING', foo: 'DATE' },
+        column_format: { fiz: 'NUMERIC', about: 'STRING', foo: 'DATE' },
         datasource_name: 'my_datasource',
         description: 'this is my datasource',
       }),
@@ -58,7 +58,7 @@ describe('columnChoices()', () => {
   });
 
   it('should convert columns to choices when source is a Query', () => {
-    expect(columnChoices(testQueryResponse)).toEqual([
+    expect(columnChoices(testQuery as QueryResponse)).toEqual([
       ['Column 1', 'Column 1'],
       ['Column 2', 'Column 2'],
       ['Column 3', 'Column 3'],

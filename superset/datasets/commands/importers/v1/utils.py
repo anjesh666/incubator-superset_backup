@@ -28,10 +28,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import MultipleResultsFound
 from sqlalchemy.sql.visitors import VisitableType
 
-from superset import security_manager
-from superset.commands.exceptions import ImportFailedError
 from superset.connectors.sqla.models import SqlaTable
-from superset.datasets.commands.exceptions import DatasetForbiddenDataURI
 from superset.models.core import Database
 
 logger = logging.getLogger(__name__)
@@ -62,7 +59,8 @@ def get_sqla_type(native_type: str) -> VisitableType:
     if native_type.upper() in type_map:
         return type_map[native_type.upper()]
 
-    if match := VARCHAR.match(native_type):
+    match = VARCHAR.match(native_type)
+    if match:
         size = int(match.group(1))
         return String(size)
 
@@ -77,48 +75,17 @@ def get_dtype(df: pd.DataFrame, dataset: SqlaTable) -> Dict[str, VisitableType]:
     }
 
 
-def validate_data_uri(data_uri: str) -> None:
-    """
-    Validate that the data URI is configured on DATASET_IMPORT_ALLOWED_URLS
-    has a valid URL.
-
-    :param data_uri:
-    :return:
-    """
-    allowed_urls = current_app.config["DATASET_IMPORT_ALLOWED_DATA_URLS"]
-    for allowed_url in allowed_urls:
-        try:
-            match = re.match(allowed_url, data_uri)
-        except re.error:
-            logger.exception(
-                "Invalid regular expression on DATASET_IMPORT_ALLOWED_URLS"
-            )
-            raise
-        if match:
-            return
-    raise DatasetForbiddenDataURI()
-
-
 def import_dataset(
     session: Session,
     config: Dict[str, Any],
     overwrite: bool = False,
     force_data: bool = False,
-    ignore_permissions: bool = False,
 ) -> SqlaTable:
-    can_write = ignore_permissions or security_manager.can_access(
-        "can_write",
-        "Dataset",
-    )
     existing = session.query(SqlaTable).filter_by(uuid=config["uuid"]).first()
     if existing:
-        if not overwrite or not can_write:
+        if not overwrite:
             return existing
         config["id"] = existing.id
-    elif not can_write:
-        raise ImportFailedError(
-            "Dataset doesn't exist and user doesn't have permission to create datasets"
-        )
 
     # TODO (betodealmeida): move this logic to import_from_dict
     config = config.copy()
@@ -172,6 +139,7 @@ def import_dataset(
         table_exists = True
 
     if data_uri and (not table_exists or force_data):
+        logger.info("Downloading data from %s", data_uri)
         load_data(data_uri, dataset, dataset.database, session)
 
     if hasattr(g, "user") and g.user:
@@ -183,14 +151,6 @@ def import_dataset(
 def load_data(
     data_uri: str, dataset: SqlaTable, database: Database, session: Session
 ) -> None:
-    """
-    Load data from a data URI into a dataset.
-
-    :raises DatasetUnAllowedDataURI: If a dataset is trying
-    to load data from a URI that is not allowed.
-    """
-    validate_data_uri(data_uri)
-    logger.info("Downloading data from %s", data_uri)
     data = request.urlopen(data_uri)  # pylint: disable=consider-using-with
     if data_uri.endswith(".gz"):
         data = gzip.open(data)
@@ -206,26 +166,17 @@ def load_data(
     if database.sqlalchemy_uri == current_app.config.get("SQLALCHEMY_DATABASE_URI"):
         logger.info("Loading data inside the import transaction")
         connection = session.connection()
-        df.to_sql(
-            dataset.table_name,
-            con=connection,
-            schema=dataset.schema,
-            if_exists="replace",
-            chunksize=CHUNKSIZE,
-            dtype=dtype,
-            index=False,
-            method="multi",
-        )
     else:
         logger.warning("Loading data outside the import transaction")
-        with database.get_sqla_engine_with_context() as engine:
-            df.to_sql(
-                dataset.table_name,
-                con=engine,
-                schema=dataset.schema,
-                if_exists="replace",
-                chunksize=CHUNKSIZE,
-                dtype=dtype,
-                index=False,
-                method="multi",
-            )
+        connection = database.get_sqla_engine()
+
+    df.to_sql(
+        dataset.table_name,
+        con=connection,
+        schema=dataset.schema,
+        if_exists="replace",
+        chunksize=CHUNKSIZE,
+        dtype=dtype,
+        index=False,
+        method="multi",
+    )

@@ -27,11 +27,11 @@ import {
   useTheme,
   t,
 } from '@superset-ui/core';
-import Icons from 'src/components/Icons';
+import { CheckOutlined, EllipsisOutlined } from '@ant-design/icons';
 import Button from 'src/components/Button';
 import { Tooltip } from 'src/components/Tooltip';
 import FiltersHeader from './FiltersHeader';
-import { getFilterBarTestId } from '../utils';
+import { getFilterBarTestId } from '..';
 
 const HeaderButton = styled(Button)`
   padding: 0;
@@ -107,10 +107,7 @@ const FilterSetUnit: FC<FilterSetUnitProps> = ({
         </Typography.Text>
         <IconsBlock>
           {isApplied && (
-            <Icons.CheckOutlined
-              iconSize="m"
-              iconColor={theme.colors.success.base}
-            />
+            <CheckOutlined style={{ color: theme.colors.success.base }} />
           )}
           {onDelete && (
             <AntdDropdown
@@ -127,7 +124,7 @@ const FilterSetUnit: FC<FilterSetUnitProps> = ({
                 buttonStyle="link"
                 buttonSize="xsmall"
               >
-                <Icons.EllipsisOutlined iconSize="m" />
+                <EllipsisOutlined />
               </HeaderButton>
             </AntdDropdown>
           )}

@@ -19,7 +19,7 @@
 import React from 'react';
 import fetchMock from 'fetch-mock';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from 'spec/helpers/testing-library';
+import { render, screen } from 'spec/helpers/testing-library';
 import DatasourceEditor from 'src/components/Datasource/DatasourceEditor';
 import mockDatasource from 'spec/fixtures/mockDatasource';
 import * as featureFlags from 'src/featureFlags';
@@ -32,26 +32,26 @@ const props = {
 };
 const DATASOURCE_ENDPOINT = 'glob:*/datasource/external_metadata_by_name/*';
 
-const asyncRender = props =>
-  waitFor(() => render(<DatasourceEditor {...props} />, { useRedux: true }));
-
 describe('DatasourceEditor', () => {
   fetchMock.get(DATASOURCE_ENDPOINT, []);
 
+  let el;
   let isFeatureEnabledMock;
 
-  beforeEach(async () => {
-    await asyncRender({
-      ...props,
-      datasource: { ...props.datasource, table_name: 'Vehicle Sales +' },
-    });
+  beforeEach(() => {
+    el = <DatasourceEditor {...props} />;
+    render(el, { useRedux: true });
+  });
+
+  it('is valid', () => {
+    expect(React.isValidElement(el)).toBe(true);
   });
 
   it('renders Tabs', () => {
     expect(screen.getByTestId('edit-dataset-tabs')).toBeInTheDocument();
   });
 
-  it('can sync columns from source', () =>
+  it('makes an async request', () =>
     new Promise(done => {
       const columnsTab = screen.getByTestId('collection-tab-Columns');
 
@@ -63,9 +63,6 @@ describe('DatasourceEditor', () => {
 
       setTimeout(() => {
         expect(fetchMock.calls(DATASOURCE_ENDPOINT)).toHaveLength(1);
-        expect(fetchMock.calls(DATASOURCE_ENDPOINT)[0][0]).toContain(
-          'Vehicle%20Sales%20%2B%27',
-        );
         fetchMock.reset();
         done();
       }, 0);
@@ -107,6 +104,7 @@ describe('DatasourceEditor', () => {
     });
 
     userEvent.click(getToggles[0]);
+    screen.logTestingPlaygroundURL();
     const deleteButtons = screen.getAllByRole('button', {
       name: /delete item/i,
     });
@@ -187,8 +185,11 @@ describe('DatasourceEditor', () => {
         .mockImplementation(() => true);
     });
 
-    it('disable edit Source tab', async () => {
-      await asyncRender(props);
+    beforeEach(() => {
+      render(el, { useRedux: true });
+    });
+
+    it('disable edit Source tab', () => {
       expect(
         screen.queryByRole('img', { name: /lock-locked/i }),
       ).not.toBeInTheDocument();
@@ -199,7 +200,7 @@ describe('DatasourceEditor', () => {
 
 describe('DatasourceEditor RTL', () => {
   it('properly renders the metric information', async () => {
-    await asyncRender(props);
+    render(<DatasourceEditor {...props} />, { useRedux: true });
     const metricButton = screen.getByTestId('collection-tab-Metrics');
     userEvent.click(metricButton);
     const expandToggle = await screen.findAllByLabelText(/toggle expand/i);
@@ -212,7 +213,9 @@ describe('DatasourceEditor RTL', () => {
     expect(warningMarkdown.value).toEqual('someone');
   });
   it('properly updates the metric information', async () => {
-    await asyncRender(props);
+    render(<DatasourceEditor {...props} />, {
+      useRedux: true,
+    });
     const metricButton = screen.getByTestId('collection-tab-Metrics');
     userEvent.click(metricButton);
     const expandToggle = await screen.findAllByLabelText(/toggle expand/i);
@@ -227,22 +230,26 @@ describe('DatasourceEditor RTL', () => {
     expect(certificationDetails.value).toEqual('I am typing something new');
   });
   it('shows the default datetime column', async () => {
-    await asyncRender(props);
+    render(<DatasourceEditor {...props} />, { useRedux: true });
     const metricButton = screen.getByTestId('collection-tab-Columns');
     userEvent.click(metricButton);
+
     const dsDefaultDatetimeRadio = screen.getByTestId('radio-default-dttm-ds');
     expect(dsDefaultDatetimeRadio).toBeChecked();
+
     const genderDefaultDatetimeRadio = screen.getByTestId(
       'radio-default-dttm-gender',
     );
     expect(genderDefaultDatetimeRadio).not.toBeChecked();
   });
   it('allows choosing only temporal columns as the default datetime', async () => {
-    await asyncRender(props);
+    render(<DatasourceEditor {...props} />, { useRedux: true });
     const metricButton = screen.getByTestId('collection-tab-Columns');
     userEvent.click(metricButton);
+
     const dsDefaultDatetimeRadio = screen.getByTestId('radio-default-dttm-ds');
     expect(dsDefaultDatetimeRadio).toBeEnabled();
+
     const genderDefaultDatetimeRadio = screen.getByTestId(
       'radio-default-dttm-gender',
     );

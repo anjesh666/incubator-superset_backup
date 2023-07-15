@@ -19,11 +19,13 @@ import textwrap
 from typing import Dict, List, Tuple, Union
 
 import pandas as pd
+from flask_appbuilder.security.sqla.models import User
 from sqlalchemy import DateTime, inspect, String
 from sqlalchemy.sql import column
 
-from superset import app, db
+from superset import app, db, security_manager
 from superset.connectors.sqla.models import SqlaTable, SqlMetric, TableColumn
+from superset.exceptions import NoDataException
 from superset.models.core import Database
 from superset.models.dashboard import Dashboard
 from superset.models.slice import Slice
@@ -31,13 +33,24 @@ from superset.utils.core import DatasourceType
 
 from ..utils.database import get_example_database
 from .helpers import (
-    get_example_url,
+    get_example_data,
     get_slice_json,
     get_table_connector_registry,
     merge_slice,
     misc_dash_slices,
     update_slice_ids,
 )
+
+
+def get_admin_user() -> User:
+    admin = security_manager.find_user("admin")
+    if admin is None:
+        raise NoDataException(
+            "Admin user does not exist. "
+            "Please, check if test users are properly loaded "
+            "(`superset load_test_users`)."
+        )
+    return admin
 
 
 def gen_filter(
@@ -53,8 +66,7 @@ def gen_filter(
 
 
 def load_data(tbl_name: str, database: Database, sample: bool = False) -> None:
-    url = get_example_url("birth_names2.json.gz")
-    pdf = pd.read_json(url, compression="gzip")
+    pdf = pd.read_json(get_example_data("birth_names2.json.gz"))
     # TODO(bkyryliuk): move load examples data into the pytest fixture
     if database.backend == "presto":
         pdf.ds = pd.to_datetime(pdf.ds, unit="ms")
@@ -63,25 +75,25 @@ def load_data(tbl_name: str, database: Database, sample: bool = False) -> None:
         pdf.ds = pd.to_datetime(pdf.ds, unit="ms")
     pdf = pdf.head(100) if sample else pdf
 
-    with database.get_sqla_engine_with_context() as engine:
-        schema = inspect(engine).default_schema_name
+    engine = database.get_sqla_engine()
+    schema = inspect(engine).default_schema_name
 
-        pdf.to_sql(
-            tbl_name,
-            engine,
-            schema=schema,
-            if_exists="replace",
-            chunksize=500,
-            dtype={
-                # TODO(bkyryliuk): use TIMESTAMP type for presto
-                "ds": DateTime if database.backend != "presto" else String(255),
-                "gender": String(16),
-                "state": String(10),
-                "name": String(255),
-            },
-            method="multi",
-            index=False,
-        )
+    pdf.to_sql(
+        tbl_name,
+        database.get_sqla_engine(),
+        schema=schema,
+        if_exists="replace",
+        chunksize=500,
+        dtype={
+            # TODO(bkyryliuk): use TIMESTAMP type for presto
+            "ds": DateTime if database.backend != "presto" else String(255),
+            "gender": String(16),
+            "state": String(10),
+            "name": String(255),
+        },
+        method="multi",
+        index=False,
+    )
     print("Done loading table!")
     print("-" * 80)
 
@@ -91,8 +103,8 @@ def load_birth_names(
 ) -> None:
     """Loading birth name dataset from a zip file in the repo"""
     database = get_example_database()
-    with database.get_sqla_engine_with_context() as engine:
-        schema = inspect(engine).default_schema_name
+    engine = database.get_sqla_engine()
+    schema = inspect(engine).default_schema_name
 
     tbl_name = "birth_names"
     table_exists = database.has_table_by_name(tbl_name, schema=schema)
@@ -112,7 +124,7 @@ def load_birth_names(
 
     db.session.commit()
 
-    slices, _ = create_slices(obj)
+    slices, _ = create_slices(obj, admin_owner=True)
     create_dashboard(slices)
 
 
@@ -144,15 +156,15 @@ def _add_table_metrics(datasource: SqlaTable) -> None:
         metrics.append(SqlMetric(metric_name="sum__num", expression=f"SUM({col})"))
 
     for col in columns:
-        if col.column_name == "ds":  # type: ignore
-            col.is_dttm = True  # type: ignore
+        if col.column_name == "ds":
+            col.is_dttm = True
             break
 
     datasource.columns = columns
     datasource.metrics = metrics
 
 
-def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
+def create_slices(tbl: SqlaTable, admin_owner: bool) -> Tuple[List[Slice], List[Slice]]:
     metrics = [
         {
             "expressionType": "SIMPLE",
@@ -168,10 +180,12 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
         "compare_lag": "10",
         "compare_suffix": "o10Y",
         "limit": "25",
+        "time_range": "No filter",
         "granularity_sqla": "ds",
         "groupby": [],
         "row_limit": app.config["ROW_LIMIT"],
-        "time_range": "100 years ago : now",
+        "since": "100 years ago",
+        "until": "now",
         "viz_type": "table",
         "markup_type": "markdown",
     }
@@ -191,16 +205,26 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
         ],
     }
 
-    slice_kwargs = {
-        "datasource_id": tbl.id,
-        "datasource_type": DatasourceType.TABLE,
-        "owners": [],
-    }
+    admin = get_admin_user()
+    if admin_owner:
+        slice_props = dict(
+            datasource_id=tbl.id,
+            datasource_type=DatasourceType.TABLE,
+            owners=[admin],
+            created_by=admin,
+        )
+    else:
+        slice_props = dict(
+            datasource_id=tbl.id,
+            datasource_type=DatasourceType.TABLE,
+            owners=[],
+            created_by=admin,
+        )
 
     print("Creating some slices")
     slices = [
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Participants",
             viz_type="big_number",
             params=get_slice_json(
@@ -213,7 +237,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Genders",
             viz_type="pie",
             params=get_slice_json(
@@ -221,7 +245,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Trends",
             viz_type="line",
             params=get_slice_json(
@@ -235,7 +259,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Genders by State",
             viz_type="dist_bar",
             params=get_slice_json(
@@ -271,7 +295,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Girls",
             viz_type="table",
             params=get_slice_json(
@@ -284,7 +308,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Girl Name Cloud",
             viz_type="word_cloud",
             params=get_slice_json(
@@ -300,7 +324,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Boys",
             viz_type="table",
             params=get_slice_json(
@@ -313,7 +337,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Boy Name Cloud",
             viz_type="word_cloud",
             params=get_slice_json(
@@ -329,7 +353,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Top 10 Girl Name Share",
             viz_type="area",
             params=get_slice_json(
@@ -346,7 +370,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Top 10 Boy Name Share",
             viz_type="area",
             params=get_slice_json(
@@ -363,7 +387,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Pivot Table v2",
             viz_type="pivot_table_v2",
             params=get_slice_json(
@@ -386,7 +410,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
     ]
     misc_slices = [
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Average and Sum Trends",
             viz_type="dual_line",
             params=get_slice_json(
@@ -405,25 +429,26 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Num Births Trend",
             viz_type="line",
             params=get_slice_json(defaults, viz_type="line", metrics=metrics),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Daily Totals",
             viz_type="table",
             params=get_slice_json(
                 defaults,
                 groupby=["ds"],
-                time_range="1983 : 2023",
+                since="40 years ago",
+                until="now",
                 viz_type="table",
                 metrics=metrics,
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Number of California Births",
             viz_type="big_number_total",
             params=get_slice_json(
@@ -442,7 +467,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Top 10 California Names Timeseries",
             viz_type="line",
             params=get_slice_json(
@@ -474,7 +499,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Names Sorted by Num in California",
             viz_type="table",
             params=get_slice_json(
@@ -494,7 +519,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Number of Girls",
             viz_type="big_number_total",
             params=get_slice_json(
@@ -507,7 +532,7 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
             ),
         ),
         Slice(
-            **slice_kwargs,
+            **slice_props,
             slice_name="Pivot Table",
             viz_type="pivot_table",
             params=get_slice_json(
@@ -531,10 +556,12 @@ def create_slices(tbl: SqlaTable) -> Tuple[List[Slice], List[Slice]]:
 
 def create_dashboard(slices: List[Slice]) -> Dashboard:
     print("Creating a dashboard")
+    admin = get_admin_user()
     dash = db.session.query(Dashboard).filter_by(slug="births").first()
     if not dash:
         dash = Dashboard()
-        dash.owners = []
+        dash.owners = [admin]
+        dash.created_by = admin
         db.session.add(dash)
 
     dash.published = True

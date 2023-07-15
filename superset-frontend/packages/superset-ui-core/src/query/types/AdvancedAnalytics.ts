@@ -29,7 +29,7 @@ export interface RollingWindow {
   min_periods?: number;
 }
 
-export enum ComparisonType {
+export enum ComparisionType {
   Values = 'values',
   Difference = 'difference',
   Percentage = 'percentage',
@@ -37,7 +37,7 @@ export enum ComparisonType {
 }
 export interface TimeCompare {
   time_compare?: string;
-  comparison_type?: ComparisonType;
+  comparison_type?: ComparisionType;
 }
 
 export default {};

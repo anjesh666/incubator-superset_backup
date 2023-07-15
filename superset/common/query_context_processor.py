@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Union
 
 import numpy as np
@@ -35,7 +34,6 @@ from superset.common.db_query_status import QueryStatus
 from superset.common.query_actions import get_query_results
 from superset.common.utils import dataframe_utils
 from superset.common.utils.query_cache_manager import QueryCacheManager
-from superset.common.utils.time_range_utils import get_since_until_from_query_object
 from superset.connectors.base.models import BaseDatasource
 from superset.constants import CacheRegion
 from superset.exceptions import (
@@ -45,24 +43,18 @@ from superset.exceptions import (
 )
 from superset.extensions import cache_manager, security_manager
 from superset.models.helpers import QueryResult
-from superset.models.sql_lab import Query
-from superset.utils import csv, excel
+from superset.utils import csv
 from superset.utils.cache import generate_cache_key, set_and_log_cache
 from superset.utils.core import (
-    DatasourceType,
-    DateColumn,
     DTTM_ALIAS,
     error_msg_from_exception,
-    get_base_axis_labels,
     get_column_names_from_columns,
     get_column_names_from_metrics,
     get_metric_names,
-    get_xaxis_label,
     normalize_dttm_col,
     TIME_COMPARISON,
 )
 from superset.utils.date_parser import get_past_or_future, normalize_time_delta
-from superset.utils.pandas_postprocessing.utils import unescape_separator
 from superset.views.utils import get_viz
 
 if TYPE_CHECKING:
@@ -106,13 +98,11 @@ class QueryContextProcessor:
     ) -> Dict[str, Any]:
         """Handles caching around the df payload retrieval"""
         cache_key = self.query_cache_key(query_obj)
-        timeout = self.get_cache_timeout()
-        force_query = self._query_context.force or timeout == -1
         cache = QueryCacheManager.get(
-            key=cache_key,
-            region=CacheRegion.DATA,
-            force_query=force_query,
-            force_cached=force_cached,
+            cache_key,
+            CacheRegion.DATA,
+            self._query_context.force,
+            force_cached,
         )
 
         if query_obj and cache_key and not cache.is_loaded:
@@ -130,7 +120,7 @@ class QueryContextProcessor:
                 if invalid_columns:
                     raise QueryObjectValidationError(
                         _(
-                            "Columns missing in dataset: %(invalid_columns)s",
+                            "Columns missing in datasource: %(invalid_columns)s",
                             invalid_columns=invalid_columns,
                         )
                     )
@@ -141,7 +131,7 @@ class QueryContextProcessor:
                     key=cache_key,
                     query_result=query_result,
                     annotation_data=annotation_data,
-                    force_query=force_query,
+                    force_query=self._query_context.force,
                     timeout=self.get_cache_timeout(),
                     datasource_uid=self._qc_datasource.uid,
                     region=CacheRegion.DATA,
@@ -150,25 +140,12 @@ class QueryContextProcessor:
                 cache.error_message = str(ex)
                 cache.status = QueryStatus.FAILED
 
-        # the N-dimensional DataFrame has converteds into flat DataFrame
-        # by `flatten operator`, "comma" in the column is escaped by `escape_separator`
-        # the result DataFrame columns should be unescaped
-        label_map = {
-            unescape_separator(col): [
-                unescape_separator(col) for col in re.split(r"(?<!\\),\s", col)
-            ]
-            for col in cache.df.columns.values
-        }
-        cache.df.columns = [unescape_separator(col) for col in cache.df.columns.values]
-
         return {
             "cache_key": cache_key,
             "cached_dttm": cache.cache_dttm,
             "cache_timeout": self.get_cache_timeout(),
             "df": cache.df,
             "applied_template_filters": cache.applied_template_filters,
-            "applied_filter_columns": cache.applied_filter_columns,
-            "rejected_filter_columns": cache.rejected_filter_columns,
             "annotation_data": cache.annotation_data,
             "error": cache.error_message,
             "is_cached": cache.is_cached,
@@ -178,7 +155,6 @@ class QueryContextProcessor:
             "rowcount": len(cache.df.index),
             "from_dttm": query_obj.from_dttm,
             "to_dttm": query_obj.to_dttm,
-            "label_map": label_map,
         }
 
     def query_cache_key(self, query_obj: QueryObject, **kwargs: Any) -> Optional[str]:
@@ -207,6 +183,10 @@ class QueryContextProcessor:
         # Here, we assume that all the queries will use the same datasource, which is
         # a valid assumption for current setting. In the long term, we may
         # support multiple queries from different data sources.
+
+        # The datasource here can be different backend but the interface is common
+        # pylint: disable=import-outside-toplevel
+        from superset.models.sql_lab import Query
 
         query = ""
         if isinstance(query_context.datasource, Query):
@@ -237,7 +217,7 @@ class QueryContextProcessor:
             try:
                 df = query_object.exec_post_processing(df)
             except InvalidPostProcessingError as ex:
-                raise QueryObjectValidationError(ex.message) from ex
+                raise QueryObjectValidationError from ex
 
         result.df = df
         result.query = query
@@ -246,58 +226,18 @@ class QueryContextProcessor:
         return result
 
     def normalize_df(self, df: pd.DataFrame, query_object: QueryObject) -> pd.DataFrame:
-        # todo: should support "python_date_format" and "get_column" in each datasource
-        def _get_timestamp_format(
-            source: BaseDatasource, column: Optional[str]
-        ) -> Optional[str]:
-            column_obj = source.get_column(column)
-            if (
-                column_obj
-                # only sqla column was supported
-                and hasattr(column_obj, "python_date_format")
-                and (formatter := column_obj.python_date_format)
-            ):
-                return str(formatter)
-
-            return None
-
         datasource = self._qc_datasource
-        labels = tuple(
-            label
-            for label in [
-                *get_base_axis_labels(query_object.columns),
-                query_object.granularity,
-            ]
-            if datasource
-            # Query datasource didn't support `get_column`
-            and hasattr(datasource, "get_column")
-            and (col := datasource.get_column(label))
-            # todo(hugh) standardize column object in Query datasource
-            and (col.get("is_dttm") if isinstance(col, dict) else col.is_dttm)
-        )
-        dttm_cols = [
-            DateColumn(
-                timestamp_format=_get_timestamp_format(datasource, label),
-                offset=datasource.offset,
-                time_shift=query_object.time_shift,
-                col_label=label,
-            )
-            for label in labels
-            if label
-        ]
-        if DTTM_ALIAS in df:
-            dttm_cols.append(
-                DateColumn.get_legacy_time_column(
-                    timestamp_format=_get_timestamp_format(
-                        datasource, query_object.granularity
-                    ),
-                    offset=datasource.offset,
-                    time_shift=query_object.time_shift,
-                )
-            )
+        timestamp_format = None
+        if datasource.type == "table":
+            dttm_col = datasource.get_column(query_object.granularity)
+            if dttm_col:
+                timestamp_format = dttm_col.python_date_format
+
         normalize_dttm_col(
             df=df,
-            dttm_cols=tuple(dttm_cols),
+            timestamp_format=timestamp_format,
+            offset=datasource.offset,
+            time_shift=query_object.time_shift,
         )
 
         if self.enforce_numerical_metrics:
@@ -307,7 +247,7 @@ class QueryContextProcessor:
 
         return df
 
-    def processing_time_offsets(  # pylint: disable=too-many-locals,too-many-statements
+    def processing_time_offsets(  # pylint: disable=too-many-locals
         self,
         df: pd.DataFrame,
         query_object: QueryObject,
@@ -320,36 +260,15 @@ class QueryContextProcessor:
         rv_dfs: List[pd.DataFrame] = [df]
 
         time_offsets = query_object.time_offsets
-        outer_from_dttm, outer_to_dttm = get_since_until_from_query_object(query_object)
-        if not outer_from_dttm or not outer_to_dttm:
-            raise QueryObjectValidationError(
-                _(
-                    "An enclosed time range (both start and end) must be specified "
-                    "when using a Time Comparison."
-                )
-            )
+        outer_from_dttm = query_object.from_dttm
+        outer_to_dttm = query_object.to_dttm
         for offset in time_offsets:
             try:
-                # pylint: disable=line-too-long
-                # Since the xaxis is also a column name for the time filter, xaxis_label will be set as granularity
-                # these query object are equivalent:
-                # 1) { granularity: 'dttm_col', time_range: '2020 : 2021', time_offsets: ['1 year ago']}
-                # 2) { columns: [
-                #        {label: 'dttm_col', sqlExpression: 'dttm_col', "columnType": "BASE_AXIS" }
-                #      ],
-                #      time_offsets: ['1 year ago'],
-                #      filters: [{col: 'dttm_col', op: 'TEMPORAL_RANGE', val: '2020 : 2021'}],
-                #    }
                 query_object_clone.from_dttm = get_past_or_future(
                     offset,
                     outer_from_dttm,
                 )
                 query_object_clone.to_dttm = get_past_or_future(offset, outer_to_dttm)
-
-                xaxis_label = get_xaxis_label(query_object.columns)
-                query_object_clone.granularity = (
-                    query_object_clone.granularity or xaxis_label
-                )
             except ValueError as ex:
                 raise QueryObjectValidationError(str(ex)) from ex
             # make sure subquery use main query where clause
@@ -357,12 +276,14 @@ class QueryContextProcessor:
             query_object_clone.inner_to_dttm = outer_to_dttm
             query_object_clone.time_offsets = []
             query_object_clone.post_processing = []
-            query_object_clone.filter = [
-                flt
-                for flt in query_object_clone.filter
-                if flt.get("col") != xaxis_label
-            ]
 
+            if not query_object.from_dttm or not query_object.to_dttm:
+                raise QueryObjectValidationError(
+                    _(
+                        "An enclosed time range (both start and end) must be specified "
+                        "when using a Time Comparison."
+                    )
+                )
             # `offset` is added to the hash function
             cache_key = self.query_cache_key(query_object_clone, time_offset=offset)
             cache = QueryCacheManager.get(
@@ -385,11 +306,7 @@ class QueryContextProcessor:
             }
             join_keys = [col for col in df.columns if col not in metrics_mapping.keys()]
 
-            if isinstance(self._qc_datasource, Query):
-                result = self._qc_datasource.exc_query(query_object_clone_dct)
-            else:
-                result = self._qc_datasource.query(query_object_clone_dct)
-
+            result = self._qc_datasource.query(query_object_clone_dct)
             queries.append(result.query)
             cache_keys.append(None)
 
@@ -411,7 +328,10 @@ class QueryContextProcessor:
                 offset_metrics_df = offset_metrics_df.rename(columns=metrics_mapping)
 
                 # 3. set time offset for index
-                index = (get_base_axis_labels(query_object.columns) or [DTTM_ALIAS])[0]
+                # TODO: add x-axis to QueryObject, potentially as an array for
+                #  multi-dimensional charts
+                granularity = query_object.granularity
+                index = granularity if granularity in df.columns else DTTM_ALIAS
                 if not dataframe_utils.is_datetime_series(offset_metrics_df.get(index)):
                     raise QueryObjectValidationError(
                         _(
@@ -450,20 +370,15 @@ class QueryContextProcessor:
         return CachedTimeOffset(df=rv_df, queries=queries, cache_keys=cache_keys)
 
     def get_data(self, df: pd.DataFrame) -> Union[str, List[Dict[str, Any]]]:
-        if self._query_context.result_format in ChartDataResultFormat.table_like():
+        if self._query_context.result_format == ChartDataResultFormat.CSV:
             include_index = not isinstance(df.index, pd.RangeIndex)
             columns = list(df.columns)
             verbose_map = self._qc_datasource.data.get("verbose_map", {})
             if verbose_map:
                 df.columns = [verbose_map.get(column, column) for column in columns]
-
-            result = None
-            if self._query_context.result_format == ChartDataResultFormat.CSV:
-                result = csv.df_to_escaped_csv(
-                    df, index=include_index, **config["CSV_EXPORT"]
-                )
-            elif self._query_context.result_format == ChartDataResultFormat.XLSX:
-                result = excel.df_to_excel(df, **config["EXCEL_EXPORT"])
+            result = csv.df_to_escaped_csv(
+                df, index=include_index, **config["CSV_EXPORT"]
+            )
             return result or ""
 
         return df.to_dict(orient="records")
@@ -500,14 +415,9 @@ class QueryContextProcessor:
         return return_value
 
     def get_cache_timeout(self) -> int:
-        if cache_timeout_rv := self._query_context.get_cache_timeout():
+        cache_timeout_rv = self._query_context.get_cache_timeout()
+        if cache_timeout_rv:
             return cache_timeout_rv
-        if (
-            data_cache_timeout := config["DATA_CACHE_CONFIG"].get(
-                "CACHE_DEFAULT_TIMEOUT"
-            )
-        ) is not None:
-            return data_cache_timeout
         return config["CACHE_DEFAULT_TIMEOUT"]
 
     def cache_key(self, **extra: Any) -> str:
@@ -581,10 +491,7 @@ class QueryContextProcessor:
         chart = ChartDAO.find_by_id(annotation_layer["value"])
         if not chart:
             raise QueryObjectValidationError(_("The chart does not exist"))
-        if not chart.datasource:
-            raise QueryObjectValidationError(_("The chart datasource does not exist"))
         form_data = chart.form_data.copy()
-        form_data.update(annotation_layer.get("overrides", {}))
         try:
             viz_obj = get_viz(
                 datasource_type=chart.datasource.type,
@@ -605,8 +512,4 @@ class QueryContextProcessor:
         """
         for query in self._query_context.queries:
             query.validate()
-
-        if self._qc_datasource.type == DatasourceType.QUERY:
-            security_manager.raise_for_access(query=self._qc_datasource)
-        else:
-            security_manager.raise_for_access(query_context=self._query_context)
+        security_manager.raise_for_access(query_context=self._query_context)

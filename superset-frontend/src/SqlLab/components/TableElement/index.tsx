@@ -17,14 +17,12 @@
  * under the License.
  */
 import React, { useState, useRef } from 'react';
-import { useDispatch } from 'react-redux';
 import Collapse from 'src/components/Collapse';
 import Card from 'src/components/Card';
 import ButtonGroup from 'src/components/ButtonGroup';
-import { css, t, styled } from '@superset-ui/core';
+import { t, styled } from '@superset-ui/core';
 import { debounce } from 'lodash';
 
-import { removeDataPreview, removeTables } from 'src/SqlLab/actions/sqlLab';
 import { Tooltip } from 'src/components/Tooltip';
 import CopyToClipboard from 'src/components/CopyToClipboard';
 import { IconTooltip } from 'src/components/IconTooltip';
@@ -57,11 +55,15 @@ export interface Table {
 
 export interface TableElementProps {
   table: Table;
+  actions: {
+    removeDataPreview: (table: Table) => void;
+    removeTables: (tables: Table[]) => void;
+  };
 }
 
 const StyledSpan = styled.span`
   color: ${({ theme }) => theme.colors.primary.dark1};
-  &:hover {
+  &: hover {
     color: ${({ theme }) => theme.colors.primary.dark2};
   }
   cursor: pointer;
@@ -72,42 +74,7 @@ const Fade = styled.div`
   opacity: ${(props: { hovered: boolean }) => (props.hovered ? 1 : 0)};
 `;
 
-const StyledCollapsePanel = styled(Collapse.Panel)`
-  ${({ theme }) => css`
-    & {
-      .ws-el-controls {
-        margin-right: ${-theme.gridUnit}px;
-        display: flex;
-      }
-
-      .header-container {
-        display: flex;
-        flex: 1;
-        align-items: center;
-        width: 100%;
-
-        .table-name {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          font-size: ${theme.typography.sizes.l}px;
-          flex: 1;
-        }
-
-        .header-right-side {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          margin-right: ${theme.gridUnit * 8}px;
-        }
-      }
-    }
-  `}
-`;
-
-const TableElement = ({ table, ...props }: TableElementProps) => {
-  const dispatch = useDispatch();
-
+const TableElement = ({ table, actions, ...props }: TableElementProps) => {
   const [sortColumns, setSortColumns] = useState(false);
   const [hovered, setHovered] = useState(false);
   const tableNameRef = useRef<HTMLInputElement>(null);
@@ -117,8 +84,8 @@ const TableElement = ({ table, ...props }: TableElementProps) => {
   };
 
   const removeTable = () => {
-    dispatch(removeDataPreview(table));
-    dispatch(removeTables([table]));
+    actions.removeDataPreview(table);
+    actions.removeTables([table]);
   };
 
   const toggleSortColumns = () => {
@@ -182,11 +149,10 @@ const TableElement = ({ table, ...props }: TableElementProps) => {
 
   const renderControls = () => {
     let keyLink;
-    const KEYS_FOR_TABLE_TEXT = t('Keys for table');
     if (table?.indexes?.length) {
       keyLink = (
         <ModalTrigger
-          modalTitle={`${KEYS_FOR_TABLE_TEXT} ${table.name}`}
+          modalTitle={`${t('Keys for table')} ${table.name}`}
           modalBody={table.indexes.map((ix, i) => (
             <pre key={i}>{JSON.stringify(ix, null, '  ')}</pre>
           ))}
@@ -304,7 +270,6 @@ const TableElement = ({ table, ...props }: TableElementProps) => {
 
     const metadata = (
       <div
-        data-test="table-element"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         css={{ paddingTop: 6 }}
@@ -321,7 +286,7 @@ const TableElement = ({ table, ...props }: TableElementProps) => {
   };
 
   return (
-    <StyledCollapsePanel
+    <Collapse.Panel
       {...props}
       key={table.id}
       header={renderHeader()}
@@ -329,7 +294,7 @@ const TableElement = ({ table, ...props }: TableElementProps) => {
       forceRender
     >
       {renderBody()}
-    </StyledCollapsePanel>
+    </Collapse.Panel>
   );
 };
 

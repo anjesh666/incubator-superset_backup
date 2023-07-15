@@ -16,20 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { setFilterConfiguration } from 'src/dashboard/actions/nativeFilters';
 import Button from 'src/components/Button';
 import { FilterConfiguration, styled } from '@superset-ui/core';
-import FiltersConfigModal from 'src/dashboard/components/nativeFilters/FiltersConfigModal/FiltersConfigModal';
-import { getFilterBarTestId } from '../utils';
+import { FiltersConfigModal } from 'src/dashboard/components/nativeFilters/FiltersConfigModal/FiltersConfigModal';
+import { getFilterBarTestId } from '..';
 
 export interface FCBProps {
   createNewOnOpen?: boolean;
   dashboardId?: number;
-  initialFilterId?: string;
-  onClick?: () => void;
-  children?: React.ReactNode;
 }
 
 const HeaderButton = styled(Button)`
@@ -39,31 +36,19 @@ const HeaderButton = styled(Button)`
 export const FilterConfigurationLink: React.FC<FCBProps> = ({
   createNewOnOpen,
   dashboardId,
-  initialFilterId,
-  onClick,
   children,
 }) => {
   const dispatch = useDispatch();
   const [isOpen, setOpen] = useState(false);
 
-  const close = useCallback(() => {
+  function close() {
     setOpen(false);
-  }, [setOpen]);
+  }
 
-  const submit = useCallback(
-    async (filterConfig: FilterConfiguration) => {
-      dispatch(await setFilterConfiguration(filterConfig));
-      close();
-    },
-    [dispatch, close],
-  );
-
-  const handleClick = useCallback(() => {
-    setOpen(true);
-    if (onClick) {
-      onClick();
-    }
-  }, [setOpen, onClick]);
+  async function submit(filterConfig: FilterConfiguration) {
+    dispatch(await setFilterConfiguration(filterConfig));
+    close();
+  }
 
   return (
     <>
@@ -72,7 +57,7 @@ export const FilterConfigurationLink: React.FC<FCBProps> = ({
         {...getFilterBarTestId('create-filter')}
         buttonStyle="link"
         buttonSize="xsmall"
-        onClick={handleClick}
+        onClick={() => setOpen(true)}
       >
         {children}
       </HeaderButton>
@@ -80,7 +65,6 @@ export const FilterConfigurationLink: React.FC<FCBProps> = ({
         isOpen={isOpen}
         onSave={submit}
         onCancel={close}
-        initialFilterId={initialFilterId}
         createNewOnOpen={createNewOnOpen}
         key={`filters-for-${dashboardId}`}
       />
@@ -88,4 +72,4 @@ export const FilterConfigurationLink: React.FC<FCBProps> = ({
   );
 };
 
-export default React.memo(FilterConfigurationLink);
+export default FilterConfigurationLink;

@@ -20,7 +20,6 @@
 import React from 'react';
 import { ReactWrapper } from 'enzyme';
 import { styledMount as mount } from 'spec/helpers/theming';
-import waitForComponentToPaint from 'spec/helpers/waitForComponentToPaint';
 import LastUpdated from '.';
 
 describe('LastUpdated', () => {
@@ -32,10 +31,9 @@ describe('LastUpdated', () => {
     expect(/^Last Updated .+$/.test(wrapper.text())).toBe(true);
   });
 
-  it('renders a refresh action', async () => {
+  it('renders a refresh action', () => {
     const mockAction = jest.fn();
     wrapper = mount(<LastUpdated updatedAt={updatedAt} update={mockAction} />);
-    await waitForComponentToPaint(wrapper);
     const props = wrapper.find('[aria-label="refresh"]').first().props();
     if (props.onClick) {
       props.onClick({} as React.MouseEvent);

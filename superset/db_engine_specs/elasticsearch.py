@@ -16,10 +16,8 @@
 # under the License.
 import logging
 from datetime import datetime
+from distutils.version import StrictVersion
 from typing import Any, Dict, Optional, Type
-
-from packaging.version import Version
-from sqlalchemy import types
 
 from superset.db_engine_specs.base import BaseEngineSpec
 from superset.db_engine_specs.exceptions import (
@@ -27,6 +25,7 @@ from superset.db_engine_specs.exceptions import (
     SupersetDBAPIOperationalError,
     SupersetDBAPIProgrammingError,
 )
+from superset.utils import core as utils
 
 logger = logging.getLogger()
 
@@ -67,11 +66,9 @@ class ElasticSearchEngineSpec(BaseEngineSpec):  # pylint: disable=abstract-metho
     def convert_dttm(
         cls, target_type: str, dttm: datetime, db_extra: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
+
         db_extra = db_extra or {}
-
-        sqla_type = cls.get_sqla_column_type(target_type)
-
-        if isinstance(sqla_type, types.DateTime):
+        if target_type.upper() == utils.TemporalType.DATETIME:
             es_version = db_extra.get("version")
             # The elasticsearch CAST function does not take effect for the time zone
             # setting. In elasticsearch7.8 and above, we can use the DATETIME_PARSE
@@ -79,7 +76,9 @@ class ElasticSearchEngineSpec(BaseEngineSpec):  # pylint: disable=abstract-metho
             supports_dttm_parse = False
             try:
                 if es_version:
-                    supports_dttm_parse = Version(es_version) >= Version("7.8")
+                    supports_dttm_parse = StrictVersion(es_version) >= StrictVersion(
+                        "7.8"
+                    )
             except Exception as ex:  # pylint: disable=broad-except
                 logger.error("Unexpected error while convert es_version", exc_info=True)
                 logger.exception(ex)
@@ -96,6 +95,7 @@ class ElasticSearchEngineSpec(BaseEngineSpec):  # pylint: disable=abstract-metho
 
 
 class OpenDistroEngineSpec(BaseEngineSpec):  # pylint: disable=abstract-method
+
     time_groupby_inline = True
     time_secondary_columns = True
     allows_joins = False
@@ -119,9 +119,7 @@ class OpenDistroEngineSpec(BaseEngineSpec):  # pylint: disable=abstract-method
     def convert_dttm(
         cls, target_type: str, dttm: datetime, db_extra: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
-        sqla_type = cls.get_sqla_column_type(target_type)
-
-        if isinstance(sqla_type, types.DateTime):
+        if target_type.upper() == utils.TemporalType.DATETIME:
             return f"""'{dttm.isoformat(timespec="seconds")}'"""
         return None
 

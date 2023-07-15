@@ -20,8 +20,10 @@ import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import { bindActionCreators } from 'redux';
+import { Provider } from 'react-redux';
 
 import { shallow } from 'enzyme';
+import { styledMount as mount } from 'spec/helpers/theming';
 import { Radio } from 'src/components/Radio';
 import Button from 'src/components/Button';
 import sinon from 'sinon';
@@ -37,7 +39,6 @@ const initialState = {
   chart: {},
   saveModal: {
     dashboards: [],
-    isVisible: true,
   },
   explore: {
     datasource: {},
@@ -53,10 +54,9 @@ const initialState = {
   },
 };
 
-const initialStore = mockStore(initialState);
+const store = mockStore(initialState);
 
 const defaultProps = {
-  addDangerToast: jest.fn(),
   onHide: () => ({}),
   actions: bindActionCreators(saveModalActions, arg => {
     if (typeof arg === 'function') {
@@ -79,40 +79,18 @@ const mockDashboardData = {
   result: [{ id: 'id', dashboard_title: 'dashboard title' }],
 };
 
-const queryStore = mockStore({
-  chart: {},
-  saveModal: {
-    dashboards: [],
-    isVisible: true,
-  },
-  explore: {
-    datasource: { name: 'test', type: 'query' },
-    slice: null,
-    alert: null,
-  },
-  user: {
-    userId: 1,
-  },
-});
-
-const queryDefaultProps = {
-  ...defaultProps,
-  form_data: { datasource: '107__query', url_params: { foo: 'bar' } },
-};
-
 const fetchDashboardsEndpoint = `glob:*/dashboardasync/api/read?_flt_0_owners=${1}`;
 
 beforeAll(() => fetchMock.get(fetchDashboardsEndpoint, mockDashboardData));
 
 afterAll(() => fetchMock.restore());
 
-const getWrapper = (props = defaultProps, store = initialStore) =>
+const getWrapper = () =>
   shallow(
     <BrowserRouter>
-      <SaveModal {...props} store={store} />
+      <SaveModal {...defaultProps} store={store} />
     </BrowserRouter>,
   )
-    .dive()
     .dive()
     .dive()
     .dive()
@@ -145,7 +123,8 @@ test('renders the right footer buttons when existing dashboard selected', () => 
 test('renders the right footer buttons when new dashboard selected', () => {
   const wrapper = getWrapper();
   wrapper.setState({
-    dashboard: { label: 'Test new dashboard', value: 'Test new dashboard' },
+    saveToDashboardId: null,
+    newDashboardName: 'Test new dashboard',
   });
   const footerWrapper = shallow(wrapper.find(StyledModal).props().footer);
   const saveAndGoDash = footerWrapper
@@ -186,6 +165,18 @@ test('sets action when overwriting slice', () => {
   expect(wrapperForOverwrite.state().action).toBe('overwrite');
 });
 
+test('fetches dashboards on component mount', () => {
+  sinon.spy(defaultProps.actions, 'fetchDashboards');
+  mount(
+    <Provider store={store}>
+      <SaveModal {...defaultProps} />
+    </Provider>,
+  );
+  expect(defaultProps.actions.fetchDashboards.calledOnce).toBe(true);
+
+  defaultProps.actions.fetchDashboards.restore();
+});
+
 test('updates slice name and selected dashboard', () => {
   const wrapper = getWrapper();
   const dashboardId = mockEvent.value;
@@ -193,8 +184,8 @@ test('updates slice name and selected dashboard', () => {
   wrapper.instance().onSliceNameChange(mockEvent);
   expect(wrapper.state().newSliceName).toBe(mockEvent.target.value);
 
-  wrapper.instance().onDashboardChange({ value: dashboardId });
-  expect(wrapper.state().dashboard.value).toBe(dashboardId);
+  wrapper.instance().onDashboardSelectChange(dashboardId);
+  expect(wrapper.state().saveToDashboardId).toBe(dashboardId);
 });
 
 test('removes alert', () => {
@@ -206,10 +197,4 @@ test('removes alert', () => {
   expect(defaultProps.actions.removeSaveModalAlert.callCount).toBe(1);
   expect(wrapper.state().alert).toBeNull();
   defaultProps.actions.removeSaveModalAlert.restore();
-});
-
-test('set dataset name when chart source is query', () => {
-  const wrapper = getWrapper(queryDefaultProps, queryStore);
-  expect(wrapper.find('[data-test="new-dataset-name"]')).toExist();
-  expect(wrapper.state().datasetName).toBe('test');
 });

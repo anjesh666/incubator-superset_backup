@@ -18,16 +18,14 @@
  */
 
 import React from 'react';
-import fetchMock from 'fetch-mock';
+import { render, screen, act } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
-import { DatasourceType, JsonObject, SupersetClient } from '@superset-ui/core';
-import { render, screen, act, waitFor } from 'spec/helpers/testing-library';
-import { fallbackExploreInitialData } from 'src/explore/fixtures';
+import { SupersetClient, DatasourceType } from '@superset-ui/core';
 import DatasourceControl from '.';
 
 const SupersetClientGet = jest.spyOn(SupersetClient, 'get');
 
-const createProps = (overrides: JsonObject = {}) => ({
+const createProps = () => ({
   hovered: false,
   type: 'DatasourceControl',
   label: 'Datasource',
@@ -47,10 +45,7 @@ const createProps = (overrides: JsonObject = {}) => ({
   },
   validationErrors: [],
   name: 'datasource',
-  actions: {
-    changeDatasource: jest.fn(),
-    setControlValue: jest.fn(),
-  },
+  actions: {},
   isEditable: true,
   user: {
     createdOn: '2021-04-27T18:12:38.952304',
@@ -65,107 +60,39 @@ const createProps = (overrides: JsonObject = {}) => ({
   },
   onChange: jest.fn(),
   onDatasourceSave: jest.fn(),
-  ...overrides,
 });
 
-async function openAndSaveChanges(datasource: any) {
-  fetchMock.put(
-    'glob:*/api/v1/dataset/*',
-    {},
-    {
-      overwriteRoutes: true,
-    },
-  );
-  fetchMock.get(
-    'glob:*/api/v1/dataset/*',
-    { result: datasource },
-    {
-      overwriteRoutes: true,
-    },
-  );
-  userEvent.click(screen.getByTestId('datasource-menu-trigger'));
-  userEvent.click(await screen.findByTestId('edit-dataset'));
-  userEvent.click(await screen.findByTestId('datasource-modal-save'));
-  userEvent.click(await screen.findByText('OK'));
-}
-
-test('Should render', async () => {
+test('Should render', () => {
   const props = createProps();
   render(<DatasourceControl {...props} />);
-  expect(await screen.findByTestId('datasource-control')).toBeVisible();
+  expect(screen.getByTestId('datasource-control')).toBeVisible();
 });
 
-test('Should have elements', async () => {
+test('Should have elements', () => {
   const props = createProps();
   render(<DatasourceControl {...props} />);
-  expect(await screen.findByText('channels')).toBeVisible();
+  expect(screen.getByText('channels')).toBeVisible();
   expect(screen.getByTestId('datasource-menu-trigger')).toBeVisible();
 });
 
-test('Should open a menu', async () => {
+test('Should open a menu', () => {
   const props = createProps();
   render(<DatasourceControl {...props} />);
 
   expect(screen.queryByText('Edit dataset')).not.toBeInTheDocument();
-  expect(screen.queryByText('Swap dataset')).not.toBeInTheDocument();
+  expect(screen.queryByText('Change dataset')).not.toBeInTheDocument();
   expect(screen.queryByText('View in SQL Lab')).not.toBeInTheDocument();
 
   userEvent.click(screen.getByTestId('datasource-menu-trigger'));
 
-  expect(await screen.findByText('Edit dataset')).toBeInTheDocument();
-  expect(screen.getByText('Swap dataset')).toBeInTheDocument();
+  expect(screen.getByText('Edit dataset')).toBeInTheDocument();
+  expect(screen.getByText('Change dataset')).toBeInTheDocument();
   expect(screen.getByText('View in SQL Lab')).toBeInTheDocument();
 });
 
-test('Should not show SQL Lab for non sql_lab role', async () => {
-  const props = createProps({
-    user: {
-      createdOn: '2021-04-27T18:12:38.952304',
-      email: 'gamma',
-      firstName: 'gamma',
-      isActive: true,
-      lastName: 'gamma',
-      permissions: {},
-      roles: { Gamma: [] },
-      userId: 2,
-      username: 'gamma',
-    },
-  });
-  render(<DatasourceControl {...props} />);
-
-  userEvent.click(screen.getByTestId('datasource-menu-trigger'));
-
-  expect(await screen.findByText('Edit dataset')).toBeInTheDocument();
-  expect(screen.getByText('Swap dataset')).toBeInTheDocument();
-  expect(screen.queryByText('View in SQL Lab')).not.toBeInTheDocument();
-});
-
-test('Should show SQL Lab for sql_lab role', async () => {
-  const props = createProps({
-    user: {
-      createdOn: '2021-04-27T18:12:38.952304',
-      email: 'sql',
-      firstName: 'sql',
-      isActive: true,
-      lastName: 'sql',
-      permissions: {},
-      roles: { Gamma: [], sql_lab: [] },
-      userId: 2,
-      username: 'sql',
-    },
-  });
-  render(<DatasourceControl {...props} />);
-
-  userEvent.click(screen.getByTestId('datasource-menu-trigger'));
-
-  expect(await screen.findByText('Edit dataset')).toBeInTheDocument();
-  expect(screen.getByText('Swap dataset')).toBeInTheDocument();
-  expect(screen.getByText('View in SQL Lab')).toBeInTheDocument();
-});
-
-test('Click on Swap dataset option', async () => {
+test('Click on Change dataset option', async () => {
   const props = createProps();
-  SupersetClientGet.mockImplementationOnce(
+  SupersetClientGet.mockImplementation(
     async ({ endpoint }: { endpoint: string }) => {
       if (endpoint.includes('_info')) {
         return {
@@ -182,7 +109,7 @@ test('Click on Swap dataset option', async () => {
   userEvent.click(screen.getByTestId('datasource-menu-trigger'));
 
   await act(async () => {
-    userEvent.click(screen.getByText('Swap dataset'));
+    userEvent.click(screen.getByText('Change dataset'));
   });
   expect(
     screen.getByText(
@@ -193,7 +120,7 @@ test('Click on Swap dataset option', async () => {
 
 test('Click on Edit dataset', async () => {
   const props = createProps();
-  SupersetClientGet.mockImplementationOnce(
+  SupersetClientGet.mockImplementation(
     async () => ({ json: { result: [] } } as any),
   );
   render(<DatasourceControl {...props} />, {
@@ -217,7 +144,7 @@ test('Edit dataset should be disabled when user is not admin', async () => {
   // @ts-expect-error
   props.user.roles = {};
   props.datasource.owners = [];
-  SupersetClientGet.mockImplementationOnce(
+  SupersetClientGet.mockImplementation(
     async () => ({ json: { result: [] } } as any),
   );
 
@@ -227,7 +154,7 @@ test('Edit dataset should be disabled when user is not admin', async () => {
 
   userEvent.click(screen.getByTestId('datasource-menu-trigger'));
 
-  expect(await screen.findByTestId('edit-dataset')).toHaveAttribute(
+  expect(screen.getByTestId('edit-dataset')).toHaveAttribute(
     'aria-disabled',
     'true',
   );
@@ -252,7 +179,7 @@ test('Click on View in SQL Lab', async () => {
   expect(postFormSpy).toBeCalledTimes(1);
 });
 
-test('Should open a different menu when datasource=query', async () => {
+test('Should open a different menu when datasource=query', () => {
   const props = createProps();
   const queryProps = {
     ...props,
@@ -269,12 +196,12 @@ test('Should open a different menu when datasource=query', async () => {
 
   userEvent.click(screen.getByTestId('datasource-menu-trigger'));
 
-  expect(await screen.findByText('Query preview')).toBeInTheDocument();
+  expect(screen.getByText('Query preview')).toBeInTheDocument();
   expect(screen.getByText('View in SQL Lab')).toBeInTheDocument();
   expect(screen.getByText('Save as dataset')).toBeInTheDocument();
 });
 
-test('Click on Save as dataset', async () => {
+test('Click on Save as dataset', () => {
   const props = createProps();
   const queryProps = {
     ...props,
@@ -289,7 +216,7 @@ test('Click on Save as dataset', async () => {
   userEvent.click(screen.getByText('Save as dataset'));
 
   // Renders a save dataset modal
-  const saveRadioBtn = await screen.findByRole('radio', {
+  const saveRadioBtn = screen.getByRole('radio', {
     name: /save as new/i,
   });
   const overwriteRadioBtn = screen.getByRole('radio', {
@@ -301,136 +228,4 @@ test('Click on Save as dataset', async () => {
   expect(screen.getByRole('button', { name: /save/i })).toBeVisible();
   expect(screen.getByRole('button', { name: /close/i })).toBeVisible();
   expect(dropdownField).toBeVisible();
-});
-
-test('should set the default temporal column', async () => {
-  const props = createProps();
-  const overrideProps = {
-    ...props,
-    form_data: {
-      granularity_sqla: 'test-col',
-    },
-    datasource: {
-      ...props.datasource,
-      main_dttm_col: 'test-default',
-      columns: [
-        {
-          column_name: 'test-col',
-          is_dttm: false,
-        },
-        {
-          column_name: 'test-default',
-          is_dttm: true,
-        },
-      ],
-    },
-  };
-  render(<DatasourceControl {...props} {...overrideProps} />, {
-    useRedux: true,
-  });
-
-  await openAndSaveChanges(overrideProps.datasource);
-  await waitFor(() => {
-    expect(props.actions.setControlValue).toHaveBeenCalledWith(
-      'granularity_sqla',
-      'test-default',
-    );
-  });
-});
-
-test('should set the first available temporal column', async () => {
-  const props = createProps();
-  const overrideProps = {
-    ...props,
-    form_data: {
-      granularity_sqla: 'test-col',
-    },
-    datasource: {
-      ...props.datasource,
-      main_dttm_col: null,
-      columns: [
-        {
-          column_name: 'test-col',
-          is_dttm: false,
-        },
-        {
-          column_name: 'test-first',
-          is_dttm: true,
-        },
-      ],
-    },
-  };
-  render(<DatasourceControl {...props} {...overrideProps} />, {
-    useRedux: true,
-  });
-
-  await openAndSaveChanges(overrideProps.datasource);
-  await waitFor(() => {
-    expect(props.actions.setControlValue).toHaveBeenCalledWith(
-      'granularity_sqla',
-      'test-first',
-    );
-  });
-});
-
-test('should not set the temporal column', async () => {
-  const props = createProps();
-  const overrideProps = {
-    ...props,
-    form_data: {
-      granularity_sqla: null,
-    },
-    datasource: {
-      ...props.datasource,
-      main_dttm_col: null,
-      columns: [
-        {
-          column_name: 'test-col',
-          is_dttm: false,
-        },
-        {
-          column_name: 'test-col-2',
-          is_dttm: false,
-        },
-      ],
-    },
-  };
-  render(<DatasourceControl {...props} {...overrideProps} />, {
-    useRedux: true,
-  });
-
-  await openAndSaveChanges(overrideProps.datasource);
-  await waitFor(() => {
-    expect(props.actions.setControlValue).toHaveBeenCalledWith(
-      'granularity_sqla',
-      null,
-    );
-  });
-});
-
-test('should show missing params state', () => {
-  const props = createProps({ datasource: fallbackExploreInitialData.dataset });
-  render(<DatasourceControl {...props} />, { useRedux: true });
-  expect(screen.getByText(/missing dataset/i)).toBeVisible();
-  expect(screen.getByText(/missing url parameters/i)).toBeVisible();
-  expect(
-    screen.getByText(
-      /the url is missing the dataset_id or slice_id parameters\./i,
-    ),
-  ).toBeVisible();
-});
-
-test('should show missing dataset state', () => {
-  // @ts-ignore
-  delete window.location;
-  // @ts-ignore
-  window.location = { search: '?slice_id=152' };
-  const props = createProps({ datasource: fallbackExploreInitialData.dataset });
-  render(<DatasourceControl {...props} />, { useRedux: true });
-  expect(screen.getAllByText(/missing dataset/i)).toHaveLength(2);
-  expect(
-    screen.getByText(
-      /the dataset linked to this chart may have been deleted\./i,
-    ),
-  ).toBeVisible();
 });

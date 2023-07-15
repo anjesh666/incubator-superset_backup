@@ -32,7 +32,7 @@ const StyledDiv = styled.div`
 `;
 
 const DescriptionContainer = styled.div`
-  line-height: ${({ theme }) => theme.gridUnit * 4}px;
+  line-height: 40px;
   padding-top: 16px;
 `;
 

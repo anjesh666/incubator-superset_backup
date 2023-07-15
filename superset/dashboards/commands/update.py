@@ -50,13 +50,13 @@ class UpdateDashboardCommand(UpdateMixin, BaseCommand):
         self.validate()
         try:
             dashboard = DashboardDAO.update(self._model, self._properties, commit=False)
+            dashboard = DashboardDAO.update_charts_owners(dashboard, commit=False)
             if self._properties.get("json_metadata"):
                 dashboard = DashboardDAO.set_dash_metadata(
                     dashboard,
                     data=json.loads(self._properties.get("json_metadata", "{}")),
                     commit=False,
                 )
-            dashboard = DashboardDAO.update_charts_owners(dashboard, commit=False)
             db.session.commit()
         except DAOUpdateFailedError as ex:
             logger.exception(ex.exception)
@@ -92,7 +92,9 @@ class UpdateDashboardCommand(UpdateMixin, BaseCommand):
         except ValidationError as ex:
             exceptions.append(ex)
         if exceptions:
-            raise DashboardInvalidError(exceptions=exceptions)
+            exception = DashboardInvalidError()
+            exception.add_list(exceptions)
+            raise exception
 
         # Validate/Populate role
         if roles_ids is None:
@@ -103,4 +105,6 @@ class UpdateDashboardCommand(UpdateMixin, BaseCommand):
         except ValidationError as ex:
             exceptions.append(ex)
         if exceptions:
-            raise DashboardInvalidError(exceptions=exceptions)
+            exception = DashboardInvalidError()
+            exception.add_list(exceptions)
+            raise exception

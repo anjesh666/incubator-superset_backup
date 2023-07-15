@@ -36,15 +36,13 @@ beforeAll(() => {
     value => value.value,
   );
 
-  fetchMock.get('glob:*/api/v1/annotation_layer/*', {
+  fetchMock.get('glob:*/annotationlayermodelview/api/read?*', {
     result: [{ label: 'Chart A', value: 'a' }],
   });
 
-  fetchMock.get('glob:*/api/v1/chart/*', {
-    result: [
-      { id: 'a', slice_name: 'Chart A', viz_type: 'table', form_data: {} },
-    ],
-  });
+  fetchMock.get('glob:*/superset/user_slices*', [
+    { id: 'a', title: 'Chart A', viz_type: 'table', data: {} },
+  ]);
 
   setupColors();
 
@@ -80,7 +78,7 @@ test('renders extra checkboxes when type is time series', async () => {
   userEvent.click(screen.getAllByText('Formula')[0]);
   userEvent.click(screen.getByText('Time series'));
   expect(
-    await screen.findByRole('button', { name: 'Show Markers' }),
+    screen.getByRole('button', { name: 'Show Markers' }),
   ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Hide Line' })).toBeInTheDocument();
 });
@@ -88,7 +86,7 @@ test('renders extra checkboxes when type is time series', async () => {
 test('enables apply and ok buttons', async () => {
   const { container } = render(<AnnotationLayer {...defaultProps} />);
 
-  await waitFor(() => {
+  waitFor(() => {
     expect(container).toBeInTheDocument();
   });
 
@@ -101,7 +99,7 @@ test('enables apply and ok buttons', async () => {
   userEvent.type(nameInput, 'Name');
   userEvent.type(formulaInput, '2x');
 
-  await waitFor(() => {
+  waitFor(() => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'OK' })).toBeEnabled();
   });
@@ -152,13 +150,13 @@ test('renders chart options', async () => {
     screen.getByRole('combobox', { name: 'Annotation source type' }),
   );
   userEvent.click(screen.getByText('Superset annotation'));
-  expect(await screen.findByText('Annotation layer')).toBeInTheDocument();
+  expect(screen.getByText('Annotation layer')).toBeInTheDocument();
 
   userEvent.click(
     screen.getByRole('combobox', { name: 'Annotation source type' }),
   );
   userEvent.click(screen.getByText('Table'));
-  expect(await screen.findByText('Chart')).toBeInTheDocument();
+  expect(screen.getByText('Chart')).toBeInTheDocument();
 });
 
 test('keeps apply disabled when missing required fields', async () => {
@@ -169,26 +167,25 @@ test('keeps apply disabled when missing required fields', async () => {
   userEvent.click(
     screen.getByRole('combobox', { name: 'Annotation layer value' }),
   );
-  expect(await screen.findByText('Chart A')).toBeInTheDocument();
-  userEvent.click(screen.getByText('Chart A'));
+  userEvent.click(await screen.findByText('Chart A'));
+  expect(
+    screen.getByText('Annotation Slice Configuration'),
+  ).toBeInTheDocument();
 
   userEvent.click(screen.getByRole('button', { name: 'Automatic Color' }));
   userEvent.click(
     screen.getByRole('combobox', { name: 'Annotation layer title column' }),
   );
-  expect(await screen.findByText(/none/i)).toBeInTheDocument();
   userEvent.click(screen.getByText('None'));
   userEvent.click(screen.getByText('Style'));
   userEvent.click(
     screen.getByRole('combobox', { name: 'Annotation layer stroke' }),
   );
-  expect(await screen.findByText('Dashed')).toBeInTheDocument();
   userEvent.click(screen.getByText('Dashed'));
   userEvent.click(screen.getByText('Opacity'));
   userEvent.click(
     screen.getByRole('combobox', { name: 'Annotation layer opacity' }),
   );
-  expect(await screen.findByText(/0.5/i)).toBeInTheDocument();
   userEvent.click(screen.getByText('0.5'));
 
   const checkboxes = screen.getAllByRole('checkbox');

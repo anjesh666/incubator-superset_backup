@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { NotificationMethodOption } from 'src/features/alerts/types';
+import { NotificationMethodOption } from './CRUD/alert/types';
 
 export interface ViewState {
   common: {

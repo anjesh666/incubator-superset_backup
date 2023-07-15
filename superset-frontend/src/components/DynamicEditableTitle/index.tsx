@@ -197,7 +197,7 @@ export const DynamicEditableTitle = ({
               ${inputWidth &&
               inputWidth > 0 &&
               css`
-                width: ${inputWidth + 1}px;
+                width: ${inputWidth}px;
               `}
             `}
           />

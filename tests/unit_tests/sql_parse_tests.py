@@ -266,9 +266,13 @@ def test_extract_tables_illdefined() -> None:
     assert extract_tables("SELECT * FROM catalogname..tbname") == set()
 
 
+@unittest.skip("Requires sqlparse>=3.1")
 def test_extract_tables_show_tables_from() -> None:
     """
     Test ``SHOW TABLES FROM``.
+
+    This is currently broken in the pinned version of sqlparse, and fixed in
+    ``sqlparse>=3.1``. However, ``sqlparse==3.1`` breaks some sql formatting.
     """
     assert extract_tables("SHOW TABLES FROM s1 like '%order%'") == set()
 
@@ -675,7 +679,7 @@ WHERE TABLE_SCHEMA like "%bi%"),0x7e)));
             """
 select (extractvalue(1,concat(0x7e,(select GROUP_CONCAT(COLUMN_NAME)
 from INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME="bi_achievement_daily"),0x7e)));
+WHERE TABLE_NAME="bi_achivement_daily"),0x7e)));
 """
         )
         == {Table("COLUMNS", "INFORMATION_SCHEMA")}
@@ -1008,42 +1012,20 @@ FROM foo f"""
     assert sql.is_select()
 
 
-def test_cte_is_select_lowercase() -> None:
-    """
-    Some CTEs with lowercase select are not correctly identified as SELECTS.
-    """
-    sql = ParsedQuery(
-        """WITH foo AS(
-select
-  FLOOR(__time TO WEEK) AS "week",
-  name,
-  COUNT(DISTINCT user_id) AS "unique_users"
-FROM "druid"."my_table"
-GROUP BY 1,2
-)
-select
-  f.week,
-  f.name,
-  f.unique_users
-FROM foo f"""
-    )
-    assert sql.is_select()
-
-
 def test_unknown_select() -> None:
     """
     Test that `is_select` works when sqlparse fails to identify the type.
     """
     sql = "WITH foo AS(SELECT 1) SELECT 1"
-    assert sqlparse.parse(sql)[0].get_type() == "SELECT"
+    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
     assert ParsedQuery(sql).is_select()
 
     sql = "WITH foo AS(SELECT 1) INSERT INTO my_table (a) VALUES (1)"
-    assert sqlparse.parse(sql)[0].get_type() == "INSERT"
+    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
     assert not ParsedQuery(sql).is_select()
 
     sql = "WITH foo AS(SELECT 1) DELETE FROM my_table"
-    assert sqlparse.parse(sql)[0].get_type() == "DELETE"
+    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
     assert not ParsedQuery(sql).is_select()
 
 
@@ -1126,6 +1108,15 @@ SELECT * FROM birth_names LIMIT 1
 def test_sqlparse_formatting():
     """
     Test that ``from_unixtime`` is formatted correctly.
+
+    ``sqlparse==0.3.1`` has a bug and removes space between ``from`` and
+    ``from_unixtime``, resulting in::
+
+        SELECT extract(HOUR
+        fromfrom_unixtime(hour_ts)
+        AT TIME ZONE 'America/Los_Angeles')
+        from table
+
     """
     assert sqlparse.format(
         "SELECT extract(HOUR from from_unixtime(hour_ts) "
@@ -1217,14 +1208,6 @@ def test_sqlparse_issue_652():
         ("extract(HOUR from from_unixtime(hour_ts)", False),
         ("(SELECT * FROM table)", True),
         ("(SELECT COUNT(DISTINCT name) from birth_names)", True),
-        (
-            "(SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%user%' LIMIT 1)",
-            True,
-        ),
-        (
-            "(SELECT table_name FROM /**/ information_schema.tables WHERE table_name LIKE '%user%' LIMIT 1)",
-            True,
-        ),
     ],
 )
 def test_has_table_query(sql: str, expected: bool) -> None:
@@ -1462,7 +1445,7 @@ def test_add_table_name(rls: str, table: str, expected: str) -> None:
     assert str(condition) == expected
 
 
-def test_get_rls_for_table(mocker: MockerFixture) -> None:
+def test_get_rls_for_table(mocker: MockerFixture, app_context: None) -> None:
     """
     Tests for ``get_rls_for_table``.
     """

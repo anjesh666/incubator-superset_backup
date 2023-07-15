@@ -43,10 +43,8 @@ const adhocMetricSQL = {
   sqlExpression: 'count(*)',
 };
 
-const savedMetric = 'count(*)';
-
 test('isSavedMetric returns true', () => {
-  expect(isSavedMetric(savedMetric)).toEqual(true);
+  expect(isSavedMetric('count(*)')).toEqual(true);
 });
 
 test('isSavedMetric returns false', () => {
@@ -78,7 +76,7 @@ test('isAdhocMetricSQL returns false', () => {
 test('isQueryFormMetric returns true', () => {
   expect(isQueryFormMetric(adhocMetricSQL)).toEqual(true);
   expect(isQueryFormMetric(adhocMetricSimple)).toEqual(true);
-  expect(isQueryFormMetric(savedMetric)).toEqual(true);
+  expect(isQueryFormMetric('count(*)')).toEqual(true);
 });
 
 test('isQueryFormMetric returns false', () => {

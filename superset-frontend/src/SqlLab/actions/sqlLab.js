@@ -17,11 +17,11 @@
  * under the License.
  */
 import shortid from 'shortid';
-import rison from 'rison';
-import { FeatureFlag, SupersetClient, t } from '@superset-ui/core';
+import JSONbig from 'json-bigint';
+import { t, SupersetClient } from '@superset-ui/core';
 import invert from 'lodash/invert';
 import mapKeys from 'lodash/mapKeys';
-import { isFeatureEnabled } from 'src/featureFlags';
+import { isFeatureEnabled, FeatureFlag } from 'src/featureFlags';
 
 import { now } from 'src/utils/dates';
 import {
@@ -32,9 +32,6 @@ import {
 } from 'src/components/MessageToasts/actions';
 import { getClientErrorObject } from 'src/utils/getClientErrorObject';
 import COMMON_ERR_MESSAGES from 'src/utils/errorMessages';
-import { LOG_ACTIONS_SQLLAB_FETCH_FAILED_QUERY } from 'src/logger/LogUtils';
-import { logEvent } from 'src/logger/actions';
-import { newQueryTabName } from '../utils/newQueryTabName';
 
 export const RESET_STATE = 'RESET_STATE';
 export const ADD_QUERY_EDITOR = 'ADD_QUERY_EDITOR';
@@ -50,6 +47,9 @@ export const EXPAND_TABLE = 'EXPAND_TABLE';
 export const COLLAPSE_TABLE = 'COLLAPSE_TABLE';
 export const QUERY_EDITOR_SETDB = 'QUERY_EDITOR_SETDB';
 export const QUERY_EDITOR_SET_SCHEMA = 'QUERY_EDITOR_SET_SCHEMA';
+export const QUERY_EDITOR_SET_SCHEMA_OPTIONS =
+  'QUERY_EDITOR_SET_SCHEMA_OPTIONS';
+export const QUERY_EDITOR_SET_TABLE_OPTIONS = 'QUERY_EDITOR_SET_TABLE_OPTIONS';
 export const QUERY_EDITOR_SET_TITLE = 'QUERY_EDITOR_SET_TITLE';
 export const QUERY_EDITOR_SET_AUTORUN = 'QUERY_EDITOR_SET_AUTORUN';
 export const QUERY_EDITOR_SET_SQL = 'QUERY_EDITOR_SET_SQL';
@@ -79,7 +79,6 @@ export const STOP_QUERY = 'STOP_QUERY';
 export const REQUEST_QUERY_RESULTS = 'REQUEST_QUERY_RESULTS';
 export const QUERY_SUCCESS = 'QUERY_SUCCESS';
 export const QUERY_FAILED = 'QUERY_FAILED';
-export const CLEAR_INACTIVE_QUERIES = 'CLEAR_INACTIVE_QUERIES';
 export const CLEAR_QUERY_RESULTS = 'CLEAR_QUERY_RESULTS';
 export const REMOVE_DATA_PREVIEW = 'REMOVE_DATA_PREVIEW';
 export const CHANGE_DATA_PREVIEW_ID = 'CHANGE_DATA_PREVIEW_ID';
@@ -112,8 +111,8 @@ const ERR_MSG_CANT_LOAD_QUERY = t("The query couldn't be loaded");
 const queryClientMapping = {
   id: 'remoteId',
   db_id: 'dbId',
-  label: 'name',
-  template_parameters: 'templateParams',
+  client_id: 'id',
+  label: 'title',
 };
 const queryServerMapping = invert(queryClientMapping);
 
@@ -121,19 +120,8 @@ const queryServerMapping = invert(queryClientMapping);
 const fieldConverter = mapping => obj =>
   mapKeys(obj, (value, key) => (key in mapping ? mapping[key] : key));
 
-export const convertQueryToServer = fieldConverter(queryServerMapping);
-export const convertQueryToClient = fieldConverter(queryClientMapping);
-
-export function getUpToDateQuery(rootState, queryEditor, key) {
-  const {
-    sqlLab: { unsavedQueryEditor },
-  } = rootState;
-  const id = key ?? queryEditor.id;
-  return {
-    ...queryEditor,
-    ...(id === unsavedQueryEditor.id && unsavedQueryEditor),
-  };
-}
+const convertQueryToServer = fieldConverter(queryServerMapping);
+const convertQueryToClient = fieldConverter(queryClientMapping);
 
 export function resetState() {
   return { type: RESET_STATE };
@@ -179,28 +167,24 @@ export function scheduleQuery(query) {
       );
 }
 
-export function estimateQueryCost(queryEditor) {
-  return (dispatch, getState) => {
-    const { dbId, schema, sql, selectedText, templateParams } =
-      getUpToDateQuery(getState(), queryEditor);
-    const requestSql = selectedText || sql;
-
-    const postPayload = {
-      database_id: dbId,
-      schema,
-      sql: requestSql,
-      template_params: JSON.parse(templateParams || '{}'),
-    };
-
-    return Promise.all([
-      dispatch({ type: COST_ESTIMATE_STARTED, query: queryEditor }),
+export function estimateQueryCost(query) {
+  const { dbId, schema, sql, templateParams } = query;
+  const endpoint =
+    schema === null
+      ? `/superset/estimate_query_cost/${dbId}/`
+      : `/superset/estimate_query_cost/${dbId}/${schema}/`;
+  return dispatch =>
+    Promise.all([
+      dispatch({ type: COST_ESTIMATE_STARTED, query }),
       SupersetClient.post({
-        endpoint: '/api/v1/sqllab/estimate/',
-        body: JSON.stringify(postPayload),
-        headers: { 'Content-Type': 'application/json' },
+        endpoint,
+        postPayload: {
+          sql,
+          templateParams: JSON.parse(templateParams || '{}'),
+        },
       })
         .then(({ json }) =>
-          dispatch({ type: COST_ESTIMATE_RETURNED, query: queryEditor, json }),
+          dispatch({ type: COST_ESTIMATE_RETURNED, query, json }),
         )
         .catch(response =>
           getClientErrorObject(response).then(error => {
@@ -210,17 +194,12 @@ export function estimateQueryCost(queryEditor) {
               t('Failed at retrieving results');
             return dispatch({
               type: COST_ESTIMATE_FAILED,
-              query: queryEditor,
+              query,
               error: message,
             });
           }),
         ),
     ]);
-  };
-}
-
-export function clearInactiveQueries() {
-  return { type: CLEAR_INACTIVE_QUERIES };
 }
 
 export function startQuery(query) {
@@ -236,13 +215,11 @@ export function startQuery(query) {
 
 export function querySuccess(query, results) {
   return function (dispatch) {
-    const sqlEditorId = results?.query?.sqlEditorId;
     const sync =
-      sqlEditorId &&
       !query.isDataPreview &&
       isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)
         ? SupersetClient.put({
-            endpoint: encodeURI(`/tabstateview/${sqlEditorId}`),
+            endpoint: encodeURI(`/tabstateview/${results.query.sqlEditorId}`),
             postPayload: { latest_query_id: query.id },
           })
         : Promise.resolve();
@@ -272,26 +249,6 @@ export function queryFailed(query, msg, link, errors) {
             postPayload: { latest_query_id: query.id },
           })
         : Promise.resolve();
-
-    const eventData = {
-      has_err: true,
-      start_offset: query.startDttm,
-      ts: new Date().getTime(),
-    };
-    errors?.forEach(({ error_type: errorType, extra }) => {
-      const messages = extra?.issue_codes?.map(({ message }) => message) || [
-        errorType,
-      ];
-      messages.forEach(message => {
-        dispatch(
-          logEvent(LOG_ACTIONS_SQLLAB_FETCH_FAILED_QUERY, {
-            ...eventData,
-            error_type: errorType,
-            error_details: message,
-          }),
-        );
-      });
-    });
 
     return (
       sync
@@ -332,16 +289,14 @@ export function fetchQueryResults(query, displayLimit) {
   return function (dispatch) {
     dispatch(requestQueryResults(query));
 
-    const queryParams = rison.encode({
-      key: query.resultsKey,
-      rows: displayLimit || null,
-    });
-
     return SupersetClient.get({
-      endpoint: `/api/v1/sqllab/results/?q=${queryParams}`,
-      parseMethod: 'json-bigint',
+      endpoint: `/superset/results/${query.resultsKey}/?rows=${displayLimit}`,
+      parseMethod: 'text',
     })
-      .then(({ json }) => dispatch(querySuccess(query, json)))
+      .then(({ text = '{}' }) => {
+        const bigIntJson = JSONbig.parse(text);
+        return dispatch(querySuccess(query, bigIntJson));
+      })
       .catch(response =>
         getClientErrorObject(response).then(error => {
           const message =
@@ -379,57 +334,26 @@ export function runQuery(query) {
 
     const search = window.location.search || '';
     return SupersetClient.post({
-      endpoint: `/api/v1/sqllab/execute/${search}`,
+      endpoint: `/superset/sql_json/${search}`,
       body: JSON.stringify(postPayload),
       headers: { 'Content-Type': 'application/json' },
-      parseMethod: 'json-bigint',
+      parseMethod: 'text',
     })
-      .then(({ json }) => {
+      .then(({ text = '{}' }) => {
         if (!query.runAsync) {
-          dispatch(querySuccess(query, json));
+          const bigIntJson = JSONbig.parse(text);
+          dispatch(querySuccess(query, bigIntJson));
         }
       })
       .catch(response =>
         getClientErrorObject(response).then(error => {
-          let message =
-            error.error ||
-            error.message ||
-            error.statusText ||
-            t('Unknown error');
+          let message = error.error || error.statusText || t('Unknown error');
           if (message.includes('CSRF token')) {
             message = t(COMMON_ERR_MESSAGES.SESSION_TIMED_OUT);
           }
           dispatch(queryFailed(query, message, error.link, error.errors));
         }),
       );
-  };
-}
-
-export function runQueryFromSqlEditor(
-  database,
-  queryEditor,
-  defaultQueryLimit,
-  tempTable,
-  ctas,
-  ctasMethod,
-) {
-  return function (dispatch, getState) {
-    const qe = getUpToDateQuery(getState(), queryEditor, queryEditor.id);
-    const query = {
-      dbId: qe.dbId,
-      sql: qe.selectedText || qe.sql,
-      sqlEditorId: qe.id,
-      tab: qe.name,
-      schema: qe.schema,
-      tempTable,
-      templateParams: qe.templateParams,
-      queryLimit: qe.queryLimit || defaultQueryLimit,
-      runAsync: database ? database.allow_run_async : false,
-      ctas,
-      ctas_method: ctasMethod,
-      updateTabState: !qe.selectedText,
-    };
-    dispatch(runQuery(query));
   };
 }
 
@@ -440,23 +364,8 @@ export function reRunQuery(query) {
   };
 }
 
-export function validateQuery(queryEditor, sql) {
-  return function (dispatch, getState) {
-    const {
-      sqlLab: { unsavedQueryEditor },
-    } = getState();
-    const qe = {
-      ...queryEditor,
-      ...(queryEditor.id === unsavedQueryEditor.id && unsavedQueryEditor),
-    };
-
-    const query = {
-      dbId: qe.dbId,
-      sql,
-      sqlEditorId: qe.id,
-      schema: qe.schema,
-      templateParams: qe.templateParams,
-    };
+export function validateQuery(query) {
+  return function (dispatch) {
     dispatch(startQueryValidation(query));
 
     const postPayload = {
@@ -466,7 +375,7 @@ export function validateQuery(queryEditor, sql) {
     };
 
     return SupersetClient.post({
-      endpoint: `/api/v1/database/${query.dbId}/validate_sql/`,
+      endpoint: `/api/v1/database/${query.dbId}/validate_sql`,
       body: JSON.stringify(postPayload),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -486,9 +395,9 @@ export function validateQuery(queryEditor, sql) {
 export function postStopQuery(query) {
   return function (dispatch) {
     return SupersetClient.post({
-      endpoint: '/api/v1/query/stop',
-      body: JSON.stringify({ client_id: query.id }),
-      headers: { 'Content-Type': 'application/json' },
+      endpoint: '/superset/stop_query/',
+      postPayload: { client_id: query.id },
+      stringify: false,
     })
       .then(() => dispatch(stopQuery(query)))
       .then(() => dispatch(addSuccessToast(t('Query was stopped.'))))
@@ -624,50 +533,6 @@ export function addQueryEditor(queryEditor) {
   };
 }
 
-export function addNewQueryEditor() {
-  return function (dispatch, getState) {
-    const {
-      sqlLab: {
-        queryEditors,
-        tabHistory,
-        unsavedQueryEditor,
-        defaultDbId,
-        databases,
-      },
-      common,
-    } = getState();
-    const activeQueryEditor = queryEditors.find(
-      qe => qe.id === tabHistory[tabHistory.length - 1],
-    );
-    const dbIds = Object.values(databases).map(database => database.id);
-    const firstDbId = dbIds.length > 0 ? Math.min(...dbIds) : undefined;
-    const { dbId, schema, queryLimit, autorun } = {
-      ...queryEditors[0],
-      ...activeQueryEditor,
-      ...(unsavedQueryEditor.id === activeQueryEditor?.id &&
-        unsavedQueryEditor),
-    };
-    const warning = isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)
-      ? ''
-      : t(
-          '-- Note: Unless you save your query, these tabs will NOT persist if you clear your cookies or change browsers.\n\n',
-        );
-
-    const name = newQueryTabName(queryEditors || []);
-
-    return dispatch(
-      addQueryEditor({
-        dbId: dbId || defaultDbId || firstDbId,
-        schema: schema ?? null,
-        autorun: autorun ?? false,
-        sql: `${warning}SELECT ...`,
-        queryLimit: queryLimit || common.conf.DEFAULT_SQLLAB_LIMIT,
-        name,
-      }),
-    );
-  };
-}
-
 export function cloneQueryToNewTab(query, autorun) {
   return function (dispatch, getState) {
     const state = getState();
@@ -676,7 +541,7 @@ export function cloneQueryToNewTab(query, autorun) {
       qe => qe.id === tabHistory[tabHistory.length - 1],
     );
     const queryEditor = {
-      name: t('Copy of %s', sourceQueryEditor.name),
+      title: t('Copy of %s', sourceQueryEditor.title),
       dbId: query.dbId ? query.dbId : null,
       schema: query.schema ? query.schema : null,
       autorun,
@@ -755,7 +620,6 @@ export function switchQueryEditor(queryEditor, displayLimit) {
   return function (dispatch) {
     if (
       isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE) &&
-      queryEditor &&
       !queryEditor.loaded
     ) {
       SupersetClient.get({
@@ -765,7 +629,7 @@ export function switchQueryEditor(queryEditor, displayLimit) {
           const loadedQueryEditor = {
             id: json.id.toString(),
             loaded: true,
-            name: json.label,
+            title: json.label,
             sql: json.sql,
             selectedText: null,
             latestQueryId: json.latest_query?.id,
@@ -859,17 +723,6 @@ export function removeQueryEditor(queryEditor) {
   };
 }
 
-export function removeAllOtherQueryEditors(queryEditor) {
-  return function (dispatch, getState) {
-    const { sqlLab } = getState();
-    sqlLab.queryEditors?.forEach(otherQueryEditor => {
-      if (otherQueryEditor.id !== queryEditor.id) {
-        dispatch(removeQueryEditor(otherQueryEditor));
-      }
-    });
-  };
-}
-
 export function removeQuery(query) {
   return function (dispatch) {
     const sync = isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)
@@ -948,6 +801,14 @@ export function queryEditorSetSchema(queryEditor, schema) {
   };
 }
 
+export function queryEditorSetSchemaOptions(queryEditor, options) {
+  return { type: QUERY_EDITOR_SET_SCHEMA_OPTIONS, queryEditor, options };
+}
+
+export function queryEditorSetTableOptions(queryEditor, options) {
+  return { type: QUERY_EDITOR_SET_TABLE_OPTIONS, queryEditor, options };
+}
+
 export function queryEditorSetAutorun(queryEditor, autorun) {
   return function (dispatch) {
     const sync = isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)
@@ -973,28 +834,24 @@ export function queryEditorSetAutorun(queryEditor, autorun) {
   };
 }
 
-export function queryEditorSetTitle(queryEditor, name, id) {
+export function queryEditorSetTitle(queryEditor, title) {
   return function (dispatch) {
     const sync = isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)
       ? SupersetClient.put({
-          endpoint: encodeURI(`/tabstateview/${id}`),
-          postPayload: { label: name },
+          endpoint: encodeURI(`/tabstateview/${queryEditor.id}`),
+          postPayload: { label: title },
         })
       : Promise.resolve();
 
     return sync
       .then(() =>
-        dispatch({
-          type: QUERY_EDITOR_SET_TITLE,
-          queryEditor: { ...queryEditor, id },
-          name,
-        }),
+        dispatch({ type: QUERY_EDITOR_SET_TITLE, queryEditor, title }),
       )
       .catch(() =>
         dispatch(
           addDangerToast(
             t(
-              'An error occurred while setting the tab name. Please contact your administrator.',
+              'An error occurred while setting the tab title. Please contact your administrator.',
             ),
           ),
         ),
@@ -1002,26 +859,21 @@ export function queryEditorSetTitle(queryEditor, name, id) {
   };
 }
 
-export function saveQuery(query, clientId) {
-  const { id, ...payload } = convertQueryToServer(query);
-
+export function saveQuery(query) {
   return dispatch =>
     SupersetClient.post({
-      endpoint: '/api/v1/saved_query/',
-      jsonPayload: convertQueryToServer(payload),
+      endpoint: '/savedqueryviewapi/api/create',
+      postPayload: convertQueryToServer(query),
+      stringify: false,
     })
       .then(result => {
-        const savedQuery = convertQueryToClient({
-          id: result.json.id,
-          ...result.json.result,
-        });
+        const savedQuery = convertQueryToClient(result.json.item);
         dispatch({
           type: QUERY_EDITOR_SAVED,
           query,
-          clientId,
           result: savedQuery,
         });
-        dispatch(queryEditorSetTitle(query, query.name, clientId));
+        dispatch(queryEditorSetTitle(query, query.title));
         return savedQuery;
       })
       .catch(() =>
@@ -1047,24 +899,20 @@ export const addSavedQueryToTabState =
       });
   };
 
-export function updateSavedQuery(query, clientId) {
-  const { id, ...payload } = convertQueryToServer(query);
-
+export function updateSavedQuery(query) {
   return dispatch =>
     SupersetClient.put({
-      endpoint: `/api/v1/saved_query/${query.remoteId}`,
-      jsonPayload: convertQueryToServer(payload),
+      endpoint: `/savedqueryviewapi/api/update/${query.remoteId}`,
+      postPayload: convertQueryToServer(query),
+      stringify: false,
     })
       .then(() => {
         dispatch(addSuccessToast(t('Your query was updated')));
-        dispatch(queryEditorSetTitle(query, query.name, clientId));
+        dispatch(queryEditorSetTitle(query, query.title));
       })
-      .catch(e => {
-        const message = t('Your query could not be updated');
-        // eslint-disable-next-line no-console
-        console.error(message, e);
-        dispatch(addDangerToast(message));
-      })
+      .catch(() =>
+        dispatch(addDangerToast(t('Your query could not be updated'))),
+      )
       .then(() => dispatch(updateQueryEditor(query)));
 }
 
@@ -1072,9 +920,8 @@ export function queryEditorSetSql(queryEditor, sql) {
   return { type: QUERY_EDITOR_SET_SQL, queryEditor, sql };
 }
 
-export function queryEditorSetAndSaveSql(targetQueryEditor, sql) {
-  return function (dispatch, getState) {
-    const queryEditor = getUpToDateQuery(getState(), targetQueryEditor);
+export function queryEditorSetAndSaveSql(queryEditor, sql) {
+  return function (dispatch) {
     // saved query and set tab state use this action
     dispatch(queryEditorSetSql(queryEditor, sql));
     if (isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE)) {
@@ -1118,7 +965,7 @@ export function queryEditorSetQueryLimit(queryEditor, queryLimit) {
         dispatch(
           addDangerToast(
             t(
-              'An error occurred while setting the tab name. Please contact your administrator.',
+              'An error occurred while setting the tab title. Please contact your administrator.',
             ),
           ),
         ),
@@ -1219,9 +1066,8 @@ function getTableExtendedMetadata(table, query, dispatch) {
     );
 }
 
-export function addTable(queryEditor, database, tableName, schemaName) {
-  return function (dispatch, getState) {
-    const query = getUpToDateQuery(getState(), queryEditor, queryEditor.id);
+export function addTable(query, database, tableName, schemaName) {
+  return function (dispatch) {
     const table = {
       dbId: query.dbId,
       queryEditorId: query.id,
@@ -1418,12 +1264,11 @@ export function popStoredQuery(urlId) {
       .then(({ json }) =>
         dispatch(
           addQueryEditor({
-            name: json.name ? json.name : t('Shared query'),
+            title: json.title ? json.title : t('Shared query'),
             dbId: json.dbId ? parseInt(json.dbId, 10) : null,
             schema: json.schema ? json.schema : null,
             autorun: json.autorun ? json.autorun : false,
             sql: json.sql ? json.sql : 'SELECT ...',
-            templateParams: json.templateParams,
           }),
         ),
       )
@@ -1433,12 +1278,11 @@ export function popStoredQuery(urlId) {
 export function popSavedQuery(saveQueryId) {
   return function (dispatch) {
     return SupersetClient.get({
-      endpoint: `/api/v1/saved_query/${saveQueryId}`,
+      endpoint: `/savedqueryviewapi/api/get/${saveQueryId}`,
     })
       .then(({ json }) => {
         const queryEditorProps = {
           ...convertQueryToClient(json.result),
-          dbId: json.result?.database?.id,
           loaded: true,
           autorun: false,
         };
@@ -1458,7 +1302,7 @@ export function popQuery(queryId) {
           dbId: queryData.database.id,
           schema: queryData.schema,
           sql: queryData.sql,
-          name: t('Copy of %s', queryData.tab_name),
+          title: `Copy of ${queryData.tab_name}`,
           autorun: false,
         };
         return dispatch(addQueryEditor(queryEditorProps));
@@ -1468,19 +1312,17 @@ export function popQuery(queryId) {
 }
 export function popDatasourceQuery(datasourceKey, sql) {
   return function (dispatch) {
-    const QUERY_TEXT = t('Query');
-    const datasetId = datasourceKey.split('__')[0];
     return SupersetClient.get({
-      endpoint: `/api/v1/dataset/${datasetId}?q=(keys:!(none))`,
+      endpoint: `/superset/fetch_datasource_metadata?datasourceKey=${datasourceKey}`,
     })
       .then(({ json }) =>
         dispatch(
           addQueryEditor({
-            name: `${QUERY_TEXT} ${json.result.name}`,
-            dbId: json.result.database.id,
-            schema: json.result.schema,
+            title: `Query ${json.name}`,
+            dbId: json.database.id,
+            schema: json.schema,
             autorun: sql !== undefined,
-            sql: sql || json.result.select_star,
+            sql: sql || json.select_star,
           }),
         ),
       )
@@ -1493,7 +1335,7 @@ export function createDatasourceStarted() {
   return { type: CREATE_DATASOURCE_STARTED };
 }
 export function createDatasourceSuccess(data) {
-  const datasource = `${data.id}__table`;
+  const datasource = `${data.table_id}__table`;
   return { type: CREATE_DATASOURCE_SUCCESS, datasource };
 }
 export function createDatasourceFailed(err) {
@@ -1503,28 +1345,16 @@ export function createDatasourceFailed(err) {
 export function createDatasource(vizOptions) {
   return dispatch => {
     dispatch(createDatasourceStarted());
-    const { dbId, schema, datasourceName, sql } = vizOptions;
     return SupersetClient.post({
-      endpoint: '/api/v1/dataset/',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        database: dbId,
-        schema,
-        sql,
-        table_name: datasourceName,
-        is_managed_externally: false,
-        external_url: null,
-      }),
+      endpoint: '/superset/sqllab_viz/',
+      postPayload: { data: vizOptions },
     })
       .then(({ json }) => {
         dispatch(createDatasourceSuccess(json));
 
         return Promise.resolve(json);
       })
-      .catch(error => {
-        getClientErrorObject(error).then(e => {
-          dispatch(addDangerToast(e.error));
-        });
+      .catch(() => {
         dispatch(
           createDatasourceFailed(
             t('An error occurred while creating the data source'),
@@ -1540,18 +1370,49 @@ export function createCtasDatasource(vizOptions) {
   return dispatch => {
     dispatch(createDatasourceStarted());
     return SupersetClient.post({
-      endpoint: '/api/v1/dataset/get_or_create/',
-      jsonPayload: vizOptions,
+      endpoint: '/superset/get_or_create_table/',
+      postPayload: { data: vizOptions },
     })
       .then(({ json }) => {
-        dispatch(createDatasourceSuccess(json.result));
+        dispatch(createDatasourceSuccess(json));
 
-        return json.result;
+        return json;
       })
       .catch(() => {
         const errorMsg = t('An error occurred while creating the data source');
         dispatch(createDatasourceFailed(errorMsg));
         return Promise.reject(new Error(errorMsg));
+      });
+  };
+}
+
+export function queryEditorSetFunctionNames(queryEditor, dbId) {
+  return function (dispatch) {
+    return SupersetClient.get({
+      endpoint: encodeURI(`/api/v1/database/${dbId}/function_names/`),
+    })
+      .then(({ json }) =>
+        dispatch({
+          type: QUERY_EDITOR_SET_FUNCTION_NAMES,
+          queryEditor,
+          functionNames: json.function_names,
+        }),
+      )
+      .catch(err => {
+        if (err.status === 404) {
+          // for databases that have been deleted, just reset the function names
+          dispatch({
+            type: QUERY_EDITOR_SET_FUNCTION_NAMES,
+            queryEditor,
+            functionNames: [],
+          });
+        } else {
+          dispatch(
+            addDangerToast(
+              t('An error occurred while fetching function names.'),
+            ),
+          );
+        }
       });
   };
 }

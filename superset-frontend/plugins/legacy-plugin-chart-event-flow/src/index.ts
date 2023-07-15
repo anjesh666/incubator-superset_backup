@@ -18,7 +18,6 @@
  */
 import { t, ChartMetadata, ChartPlugin } from '@superset-ui/core';
 import thumbnail from './images/thumbnail.png';
-import example from './images/example.jpg';
 import controlPanel from './controlPanel';
 
 const metadata = new ChartMetadata({
@@ -27,7 +26,6 @@ const metadata = new ChartMetadata({
   description: t(
     'Compares the lengths of time different activities take in a shared timeline view.',
   ),
-  exampleGallery: [{ url: example }],
   name: t('Event Flow'),
   tags: [t('Legacy'), t('Progressive')],
   thumbnail,

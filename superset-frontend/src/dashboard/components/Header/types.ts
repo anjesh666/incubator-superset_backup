@@ -68,8 +68,7 @@ export interface HeaderProps {
   user: Object | undefined;
   dashboardInfo: DashboardInfo;
   dashboardTitle: string;
-  setColorScheme: () => void;
-  setUnsavedChanges: () => void;
+  setColorSchemeAndUnsavedChanges: () => void;
   isStarred: boolean;
   isPublished: boolean;
   onChange: () => void;

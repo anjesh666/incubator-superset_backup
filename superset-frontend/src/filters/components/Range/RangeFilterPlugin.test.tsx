@@ -18,7 +18,7 @@
  */
 import { AppSection, GenericDataType } from '@superset-ui/core';
 import React from 'react';
-import { render, screen } from 'spec/helpers/testing-library';
+import { render } from 'spec/helpers/testing-library';
 import RangeFilterPlugin from './RangeFilterPlugin';
 import { SingleValueType } from './SingleValueType';
 import transformProps from './transformProps';
@@ -121,49 +121,41 @@ describe('RangeFilterPlugin', () => {
   });
 
   it('should call setDataMask with correct greater than filter', () => {
-    getWrapper({
-      enableSingleValue: SingleValueType.Minimum,
-      defaultValue: [20, 60],
-    });
+    getWrapper({ enableSingleValue: SingleValueType.Minimum });
     expect(setDataMask).toHaveBeenCalledWith({
       extraFormData: {
         filters: [
           {
             col: 'SP_POP_TOTL',
             op: '>=',
-            val: 20,
+            val: 70,
           },
         ],
       },
       filterState: {
-        label: 'x ≥ 20',
-        value: [20, 100],
+        label: 'x ≥ 70',
+        value: [70, 100],
       },
     });
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '20');
   });
 
   it('should call setDataMask with correct less than filter', () => {
-    getWrapper({
-      enableSingleValue: SingleValueType.Maximum,
-      defaultValue: [20, 60],
-    });
+    getWrapper({ enableSingleValue: SingleValueType.Maximum });
     expect(setDataMask).toHaveBeenCalledWith({
       extraFormData: {
         filters: [
           {
             col: 'SP_POP_TOTL',
             op: '<=',
-            val: 60,
+            val: 70,
           },
         ],
       },
       filterState: {
-        label: 'x ≤ 60',
-        value: [10, 60],
+        label: 'x ≤ 70',
+        value: [10, 70],
       },
     });
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '60');
   });
 
   it('should call setDataMask with correct exact filter', () => {

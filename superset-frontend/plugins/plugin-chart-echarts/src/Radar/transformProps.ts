@@ -18,6 +18,7 @@
  */
 import {
   CategoricalColorNamespace,
+  DataRecordValue,
   ensureIsInt,
   getColumnLabel,
   getMetricLabel,
@@ -42,9 +43,7 @@ import {
   getColtypesMapping,
   getLegendProps,
 } from '../utils/series';
-import { defaultGrid } from '../defaults';
-import { Refs } from '../types';
-import { getDefaultTooltip } from '../utils/tooltip';
+import { defaultGrid, defaultTooltip } from '../defaults';
 
 export function formatLabel({
   params,
@@ -71,18 +70,8 @@ export function formatLabel({
 export default function transformProps(
   chartProps: EchartsRadarChartProps,
 ): RadarChartTransformedProps {
-  const {
-    formData,
-    height,
-    hooks,
-    filterState,
-    queriesData,
-    width,
-    theme,
-    inContextMenu,
-    emitCrossFilters,
-  } = chartProps;
-  const refs: Refs = {};
+  const { formData, height, hooks, filterState, queriesData, width, theme } =
+    chartProps;
   const { data = [] } = queriesData[0];
   const coltypeMapping = getColtypesMapping(queriesData[0]);
 
@@ -107,7 +96,7 @@ export default function transformProps(
     ...DEFAULT_RADAR_FORM_DATA,
     ...formData,
   };
-  const { setDataMask = () => {}, onContextMenu } = hooks;
+  const { setDataMask = () => {} } = hooks;
 
   const colorFn = CategoricalColorNamespace.getScale(colorScheme as string);
   const numberFormatter = getNumberFormatter(numberFormat);
@@ -122,7 +111,7 @@ export default function transformProps(
   const groupbyLabels = groupby.map(getColumnLabel);
 
   const metricLabelAndMaxValueMap = new Map<string, number>();
-  const columnsLabelMap = new Map<string, string[]>();
+  const columnsLabelMap = new Map<string, DataRecordValue[]>();
   const transformedData: RadarSeriesDataItemOption[] = [];
   data.forEach(datum => {
     const joinedName = extractGroupbyLabel({
@@ -134,7 +123,7 @@ export default function transformProps(
     // map(joined_name: [columnLabel_1, columnLabel_2, ...])
     columnsLabelMap.set(
       joinedName,
-      groupbyLabels.map(col => datum[col] as string),
+      groupbyLabels.map(col => datum[col]),
     );
 
     // put max value of series into metricLabelAndMaxValueMap
@@ -232,12 +221,11 @@ export default function transformProps(
       ...defaultGrid,
     },
     tooltip: {
-      ...getDefaultTooltip(refs),
-      show: !inContextMenu,
+      ...defaultTooltip,
       trigger: 'item',
     },
     legend: {
-      ...getLegendProps(legendType, legendOrientation, showLegend, theme),
+      ...getLegendProps(legendType, legendOrientation, showLegend),
       data: Array.from(columnsLabelMap.keys()),
     },
     series,
@@ -252,13 +240,9 @@ export default function transformProps(
     width,
     height,
     echartOptions,
-    emitCrossFilters,
     setDataMask,
     labelMap: Object.fromEntries(columnsLabelMap),
     groupby,
     selectedValues,
-    onContextMenu,
-    refs,
-    coltypeMapping,
   };
 }

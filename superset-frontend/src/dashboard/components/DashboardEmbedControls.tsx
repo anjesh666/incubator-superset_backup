@@ -148,9 +148,6 @@ export const DashboardEmbedControls = ({ dashboardId, onHide }: Props) => {
     return <Loading />;
   }
 
-  const DocsConfigDetails = extensionsRegistry.get(
-    'embedded.documentation.configuration_details',
-  );
   const docsDescription = extensionsRegistry.get(
     'embedded.documentation.description',
   );
@@ -160,25 +157,21 @@ export const DashboardEmbedControls = ({ dashboardId, onHide }: Props) => {
 
   return (
     <>
-      {embedded ? (
-        DocsConfigDetails ? (
-          <DocsConfigDetails embeddedId={embedded.uuid} />
-        ) : (
-          <p>
+      <p>
+        {embedded ? (
+          <>
             {t(
               'This dashboard is ready to embed. In your application, pass the following id to the SDK:',
             )}
             <br />
             <code>{embedded.uuid}</code>
-          </p>
-        )
-      ) : (
-        <p>
-          {t(
+          </>
+        ) : (
+          t(
             'Configure this dashboard to embed it into an external web application.',
-          )}
-        </p>
-      )}
+          )
+        )}
+      </p>
       <p>
         {t('For further instructions, consult the')}{' '}
         <a href={docsUrl} target="_blank" rel="noreferrer">
@@ -187,7 +180,7 @@ export const DashboardEmbedControls = ({ dashboardId, onHide }: Props) => {
             : t('Superset Embedded SDK documentation.')}
         </a>
       </p>
-      <h3>{t('Settings')}</h3>
+      <h3>Settings</h3>
       <FormItem>
         <label htmlFor="allowed-domains">
           {t('Allowed Domains (comma separated)')}{' '}

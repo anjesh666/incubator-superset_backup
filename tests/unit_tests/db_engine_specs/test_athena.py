@@ -17,12 +17,10 @@
 # pylint: disable=unused-argument, import-outside-toplevel, protected-access
 import re
 from datetime import datetime
-from typing import Optional
 
-import pytest
+from flask.ctx import AppContext
 
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
-from tests.unit_tests.db_engine_specs.utils import assert_convert_dttm
 from tests.unit_tests.fixtures.common import dttm
 
 SYNTAX_ERROR_REGEX = re.compile(
@@ -30,23 +28,22 @@ SYNTAX_ERROR_REGEX = re.compile(
 )
 
 
-@pytest.mark.parametrize(
-    "target_type,expected_result",
-    [
-        ("Date", "DATE '2019-01-02'"),
-        ("TimeStamp", "TIMESTAMP '2019-01-02 03:04:05.678'"),
-        ("UnknownType", None),
-    ],
-)
-def test_convert_dttm(
-    target_type: str, expected_result: Optional[str], dttm: datetime
-) -> None:
-    from superset.db_engine_specs.athena import AthenaEngineSpec as spec
+def test_convert_dttm(app_context: AppContext, dttm: datetime) -> None:
+    """
+    Test that date objects are converted correctly.
+    """
 
-    assert_convert_dttm(spec, target_type, expected_result, dttm)
+    from superset.db_engine_specs.athena import AthenaEngineSpec
+
+    assert AthenaEngineSpec.convert_dttm("DATE", dttm) == "DATE '2019-01-02'"
+
+    assert (
+        AthenaEngineSpec.convert_dttm("TIMESTAMP", dttm)
+        == "TIMESTAMP '2019-01-02 03:04:05.678'"
+    )
 
 
-def test_extract_errors() -> None:
+def test_extract_errors(app_context: AppContext) -> None:
     """
     Test that custom error messages are extracted correctly.
     """
@@ -73,7 +70,7 @@ def test_extract_errors() -> None:
     ]
 
 
-def test_get_text_clause_with_colon() -> None:
+def test_get_text_clause_with_colon(app_context: AppContext) -> None:
     """
     Make sure text clauses don't escape the colon character
     """

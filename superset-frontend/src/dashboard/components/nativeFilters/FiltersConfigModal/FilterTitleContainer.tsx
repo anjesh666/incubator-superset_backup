@@ -22,14 +22,13 @@ import Icons from 'src/components/Icons';
 import { FilterRemoval } from './types';
 import DraggableFilter from './DraggableFilter';
 
-export const FilterTitle = styled.div`
+const FilterTitle = styled.div`
   ${({ theme }) => `
       display: flex;
       align-items: center;
       padding: ${theme.gridUnit * 2}px;
       width: 100%;
       border-radius: ${theme.borderRadius}px;
-      cursor: pointer;
       &.active {
         color: ${theme.colors.grayscale.dark1};
         border-radius: ${theme.borderRadius}px;

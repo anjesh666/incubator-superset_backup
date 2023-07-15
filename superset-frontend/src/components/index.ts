@@ -55,7 +55,6 @@ export {
  * or extending the components in src/components.
  */
 export {
-  Breadcrumb as AntdBreadcrumb,
   Button as AntdButton,
   Card as AntdCard,
   Checkbox as AntdCheckbox,

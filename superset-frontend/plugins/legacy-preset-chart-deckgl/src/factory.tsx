@@ -38,7 +38,7 @@ type deckGLComponentProps = {
   viewport: Viewport;
   width: number;
 };
-export interface getLayerType<T> {
+interface getLayerType<T> {
   (
     formData: QueryFormData,
     payload: JsonObject,

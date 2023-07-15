@@ -54,23 +54,14 @@ const TooltipSection = ({
 );
 
 export const isLabelTruncated = (labelRef?: React.RefObject<any>): boolean =>
-  !!(labelRef?.current?.scrollWidth > labelRef?.current?.clientWidth);
+  !!(
+    labelRef &&
+    labelRef.current &&
+    labelRef.current.scrollWidth > labelRef.current.clientWidth
+  );
 
 export const getColumnLabelText = (column: ColumnMeta): string =>
   column.verbose_name || column.column_name;
-
-export const getColumnTypeTooltipNode = (column: ColumnMeta): ReactNode => {
-  if (!column.type) {
-    return null;
-  }
-
-  return (
-    <TooltipSection
-      label={t('Column datatype')}
-      text={column.type.toLowerCase()}
-    />
-  );
-};
 
 export const getColumnTooltipNode = (
   column: ColumnMeta,

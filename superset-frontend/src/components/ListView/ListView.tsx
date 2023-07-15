@@ -226,7 +226,6 @@ export interface ListViewProps<T extends object = any> {
   highlightRowId?: number;
   showThumbnails?: boolean;
   emptyState?: EmptyStateProps;
-  columnsForWrapText?: string[];
 }
 
 function ListView<T extends object = any>({
@@ -249,7 +248,6 @@ function ListView<T extends object = any>({
   defaultViewMode = 'card',
   highlightRowId,
   emptyState,
-  columnsForWrapText,
 }: ListViewProps<T>) {
   const {
     getTableProps,
@@ -401,7 +399,6 @@ function ListView<T extends object = any>({
               columns={columns}
               loading={loading}
               highlightRowId={highlightRowId}
-              columnsForWrapText={columnsForWrapText}
             />
           )}
           {!loading && rows.length === 0 && (

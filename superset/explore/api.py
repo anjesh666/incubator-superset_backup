@@ -17,10 +17,10 @@
 import logging
 
 from flask import g, request, Response
-from flask_appbuilder.api import expose, protect, safe
+from flask_appbuilder.api import BaseApi, expose, protect, safe
 
 from superset.charts.commands.exceptions import ChartNotFoundError
-from superset.constants import MODEL_API_RW_METHOD_PERMISSION_MAP
+from superset.constants import MODEL_API_RW_METHOD_PERMISSION_MAP, RouteMethod
 from superset.explore.commands.get import GetExploreCommand
 from superset.explore.commands.parameters import CommandParameters
 from superset.explore.exceptions import DatasetAccessDeniedError, WrongEndpointError
@@ -31,23 +31,22 @@ from superset.temporary_cache.commands.exceptions import (
     TemporaryCacheAccessDeniedError,
     TemporaryCacheResourceNotFoundError,
 )
-from superset.views.base_api import BaseSupersetApi, statsd_metrics
 
 logger = logging.getLogger(__name__)
 
 
-class ExploreRestApi(BaseSupersetApi):
+class ExploreRestApi(BaseApi):
     method_permission_name = MODEL_API_RW_METHOD_PERMISSION_MAP
+    include_route_methods = {RouteMethod.GET}
     allow_browser_login = True
     class_permission_name = "Explore"
     resource_name = "explore"
     openapi_spec_tag = "Explore"
     openapi_spec_component_schemas = (ExploreContextSchema,)
 
-    @expose("/", methods=("GET",))
+    @expose("/", methods=["GET"])
     @protect()
     @safe
-    @statsd_metrics
     @event_logger.log_this_with_context(
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.get",
         log_to_statsd=True,
@@ -83,11 +82,11 @@ class ExploreRestApi(BaseSupersetApi):
           - in: query
             schema:
               type: integer
-            name: datasource_id
+            name: dataset_id
           - in: query
             schema:
               type: string
-            name: datasource_type
+            name: dataset_type
           responses:
             200:
               description: Returns the initial context.
@@ -111,8 +110,8 @@ class ExploreRestApi(BaseSupersetApi):
                 actor=g.user,
                 permalink_key=request.args.get("permalink_key", type=str),
                 form_data_key=request.args.get("form_data_key", type=str),
-                datasource_id=request.args.get("datasource_id", type=int),
-                datasource_type=request.args.get("datasource_type", type=str),
+                dataset_id=request.args.get("dataset_id", type=int),
+                dataset_type=request.args.get("dataset_type", type=str),
                 slice_id=request.args.get("slice_id", type=int),
             )
             result = GetExploreCommand(params).run()
@@ -125,8 +124,8 @@ class ExploreRestApi(BaseSupersetApi):
             return self.response(
                 403,
                 message=ex.message,
-                datasource_id=ex.datasource_id,
-                datasource_type=ex.datasource_type,
+                dataset_id=ex.dataset_id,
+                dataset_type=ex.dataset_type,
             )
         except (ChartNotFoundError, ExplorePermalinkGetFailedError) as ex:
             return self.response(404, message=str(ex))

@@ -13,8 +13,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/superset.git",
-    "directory": "superset-frontend/plugins/legacy-plugin-chart-parallel-coordinates"
+    "url": "git+https://github.com/apache-superset/superset-ui.git"
   },
   "keywords": [
     "superset"
@@ -22,9 +21,9 @@
   "author": "Superset",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/apache/superset/issues"
+    "url": "https://github.com/apache-superset/superset-ui/issues"
   },
-  "homepage": "https://github.com/apache/superset/tree/master/superset-frontend/plugins/legacy-plugin-chart-parallel-coordinates#readme",
+  "homepage": "https://github.com/apache-superset/superset-ui#readme",
   "publishConfig": {
     "access": "public"
   },

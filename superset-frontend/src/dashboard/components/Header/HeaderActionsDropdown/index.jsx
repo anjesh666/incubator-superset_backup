@@ -18,9 +18,8 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
-import { isEmpty } from 'lodash';
 
-import { FeatureFlag, SupersetClient, t } from '@superset-ui/core';
+import { SupersetClient, t } from '@superset-ui/core';
 
 import { Menu } from 'src/components/Menu';
 import { URL_PARAMS } from 'src/constants';
@@ -36,41 +35,40 @@ import downloadAsImage from 'src/utils/downloadAsImage';
 import getDashboardUrl from 'src/dashboard/util/getDashboardUrl';
 import { getActiveFilters } from 'src/dashboard/util/activeDashboardFilters';
 import { getUrlParam } from 'src/utils/urlUtils';
-import { LOG_ACTIONS_DASHBOARD_DOWNLOAD_AS_IMAGE } from 'src/logger/LogUtils';
-import { isFeatureEnabled } from 'src/featureFlags';
+import { FILTER_BOX_MIGRATION_STATES } from 'src/explore/constants';
 
 const propTypes = {
   addSuccessToast: PropTypes.func.isRequired,
   addDangerToast: PropTypes.func.isRequired,
   dashboardInfo: PropTypes.object.isRequired,
-  dashboardId: PropTypes.number,
-  dashboardTitle: PropTypes.string,
+  dashboardId: PropTypes.number.isRequired,
+  dashboardTitle: PropTypes.string.isRequired,
   dataMask: PropTypes.object.isRequired,
-  customCss: PropTypes.string,
+  customCss: PropTypes.string.isRequired,
   colorNamespace: PropTypes.string,
   colorScheme: PropTypes.string,
   onChange: PropTypes.func.isRequired,
   updateCss: PropTypes.func.isRequired,
   forceRefreshAllCharts: PropTypes.func.isRequired,
-  refreshFrequency: PropTypes.number,
+  refreshFrequency: PropTypes.number.isRequired,
   shouldPersistRefreshFrequency: PropTypes.bool.isRequired,
   setRefreshFrequency: PropTypes.func.isRequired,
   startPeriodicRender: PropTypes.func.isRequired,
   editMode: PropTypes.bool.isRequired,
-  userCanEdit: PropTypes.bool,
-  userCanShare: PropTypes.bool,
-  userCanSave: PropTypes.bool,
+  userCanEdit: PropTypes.bool.isRequired,
+  userCanShare: PropTypes.bool.isRequired,
+  userCanSave: PropTypes.bool.isRequired,
   userCanCurate: PropTypes.bool.isRequired,
   isLoading: PropTypes.bool.isRequired,
   layout: PropTypes.object.isRequired,
-  expandedSlices: PropTypes.object,
+  expandedSlices: PropTypes.object.isRequired,
   onSave: PropTypes.func.isRequired,
   showPropertiesModal: PropTypes.func.isRequired,
   manageEmbedded: PropTypes.func.isRequired,
-  logEvent: PropTypes.func,
   refreshLimit: PropTypes.number,
   refreshWarning: PropTypes.string,
   lastModifiedTime: PropTypes.number.isRequired,
+  filterboxMigrationState: FILTER_BOX_MIGRATION_STATES,
 };
 
 const defaultProps = {
@@ -78,6 +76,7 @@ const defaultProps = {
   colorScheme: undefined,
   refreshLimit: 0,
   refreshWarning: null,
+  filterboxMigrationState: FILTER_BOX_MIGRATION_STATES.NOOP,
 };
 
 const MENU_KEYS = {
@@ -179,7 +178,6 @@ class HeaderActionsDropdown extends React.PureComponent {
         )(domEvent).then(() => {
           menu.style.visibility = 'visible';
         });
-        this.props.logEvent?.(LOG_ACTIONS_DASHBOARD_DOWNLOAD_AS_IMAGE);
         break;
       }
       case MENU_KEYS.TOGGLE_FULLSCREEN: {
@@ -225,6 +223,7 @@ class HeaderActionsDropdown extends React.PureComponent {
       lastModifiedTime,
       addSuccessToast,
       addDangerToast,
+      filterboxMigrationState,
       setIsDropdownVisible,
       isDropdownVisible,
       ...rest
@@ -239,9 +238,6 @@ class HeaderActionsDropdown extends React.PureComponent {
       filters: getActiveFilters(),
       hash: window.location.hash,
     });
-
-    const refreshIntervalOptions =
-      dashboardInfo.common?.conf?.DASHBOARD_AUTO_REFRESH_INTERVALS;
 
     return (
       <Menu selectable={false} data-test="header-actions-menu" {...rest}>
@@ -373,10 +369,7 @@ class HeaderActionsDropdown extends React.PureComponent {
           )
         ) : null}
         {editMode &&
-          !(
-            isFeatureEnabled(FeatureFlag.DASHBOARD_NATIVE_FILTERS) &&
-            isEmpty(dashboardInfo?.metadata?.filter_scopes)
-          ) && (
+          filterboxMigrationState !== FILTER_BOX_MIGRATION_STATES.CONVERTED && (
             <Menu.Item key={MENU_KEYS.SET_FILTER_MAPPING}>
               <FilterScopeModal
                 className="m-r-5"
@@ -393,7 +386,6 @@ class HeaderActionsDropdown extends React.PureComponent {
             refreshWarning={refreshWarning}
             onChange={this.changeRefreshInterval}
             editMode={editMode}
-            refreshIntervalOptions={refreshIntervalOptions}
             triggerNode={<span>{t('Set auto-refresh interval')}</span>}
           />
         </Menu.Item>

@@ -19,17 +19,15 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from flask import g
-from flask_appbuilder.models.sqla.interface import SQLAInterface
 from sqlalchemy.exc import SQLAlchemyError
 
 from superset import security_manager
 from superset.dao.base import BaseDAO
 from superset.dashboards.commands.exceptions import DashboardNotFoundError
-from superset.dashboards.filters import DashboardAccessFilter, is_uuid
+from superset.dashboards.filters import DashboardAccessFilter
 from superset.extensions import db
 from superset.models.core import FavStar, FavStarClassName
-from superset.models.dashboard import Dashboard, id_or_slug_filter
+from superset.models.dashboard import Dashboard
 from superset.models.slice import Slice
 from superset.utils.core import get_user_id
 from superset.utils.dashboard_filter_scopes_converter import copy_filter_scopes
@@ -41,29 +39,11 @@ class DashboardDAO(BaseDAO):
     model_cls = Dashboard
     base_filter = DashboardAccessFilter
 
-    @classmethod
-    def get_by_id_or_slug(cls, id_or_slug: Union[int, str]) -> Dashboard:
-        if is_uuid(id_or_slug):
-            # just get dashboard if it's uuid
-            dashboard = Dashboard.get(id_or_slug)
-        else:
-            query = (
-                db.session.query(Dashboard)
-                .filter(id_or_slug_filter(id_or_slug))
-                .outerjoin(Slice, Dashboard.slices)
-                .outerjoin(Slice.table)
-                .outerjoin(Dashboard.owners)
-                .outerjoin(Dashboard.roles)
-            )
-            # Apply dashboard base filters
-            query = cls.base_filter("id", SQLAInterface(Dashboard, db.session)).apply(
-                query, None
-            )
-            dashboard = query.one_or_none()
+    @staticmethod
+    def get_by_id_or_slug(id_or_slug: str) -> Dashboard:
+        dashboard = Dashboard.get(id_or_slug)
         if not dashboard:
             raise DashboardNotFoundError()
-
-        # make sure we still have basic access check from security manager
         security_manager.raise_for_dashboard_access(dashboard)
         return dashboard
 
@@ -87,7 +67,7 @@ class DashboardDAO(BaseDAO):
         :returns: The datetime the dashboard was last changed.
         """
 
-        dashboard: Dashboard = (
+        dashboard = (
             DashboardDAO.get_by_id_or_slug(id_or_slug_or_dashboard)
             if isinstance(id_or_slug_or_dashboard, str)
             else id_or_slug_or_dashboard
@@ -180,7 +160,6 @@ class DashboardDAO(BaseDAO):
             for model in models:
                 model.slices = []
                 model.owners = []
-                model.embedded = []
                 db.session.merge(model)
         # bulk delete itself
         try:
@@ -190,7 +169,8 @@ class DashboardDAO(BaseDAO):
             if commit:
                 db.session.commit()
         except SQLAlchemyError as ex:
-            db.session.rollback()
+            if commit:
+                db.session.rollback()
             raise ex
 
     @staticmethod
@@ -200,10 +180,11 @@ class DashboardDAO(BaseDAO):
         old_to_new_slice_ids: Optional[Dict[int, int]] = None,
         commit: bool = False,
     ) -> Dashboard:
+        positions = data.get("positions")
         new_filter_scopes = {}
         md = dashboard.params_dict
 
-        if (positions := data.get("positions")) is not None:
+        if positions is not None:
             # find slices in the position data
             slice_ids = [
                 value.get("meta", {}).get("chartId")
@@ -262,6 +243,13 @@ class DashboardDAO(BaseDAO):
             # positions have its own column, no need to store it in metadata
             md.pop("positions", None)
 
+        # The css and dashboard_title properties are not part of the metadata
+        # TODO (geido): remove by refactoring/deprecating save_dash endpoint
+        if data.get("css") is not None:
+            dashboard.css = data.get("css")
+        if data.get("dashboard_title") is not None:
+            dashboard.dashboard_title = data.get("dashboard_title")
+
         if new_filter_scopes:
             md["filter_scopes"] = new_filter_scopes
         else:
@@ -279,8 +267,7 @@ class DashboardDAO(BaseDAO):
         md["color_scheme"] = data.get("color_scheme", "")
         md["label_colors"] = data.get("label_colors", {})
         md["shared_label_colors"] = data.get("shared_label_colors", {})
-        md["color_scheme_domain"] = data.get("color_scheme_domain", [])
-        md["cross_filters_enabled"] = data.get("cross_filters_enabled", True)
+
         dashboard.json_metadata = json.dumps(md)
 
         if commit:
@@ -300,67 +287,3 @@ class DashboardDAO(BaseDAO):
             )
             .all()
         ]
-
-    @classmethod
-    def copy_dashboard(
-        cls, original_dash: Dashboard, data: Dict[str, Any]
-    ) -> Dashboard:
-        dash = Dashboard()
-        dash.owners = [g.user] if g.user else []
-        dash.dashboard_title = data["dashboard_title"]
-        dash.css = data.get("css")
-
-        metadata = json.loads(data["json_metadata"])
-        old_to_new_slice_ids: Dict[int, int] = {}
-        if data.get("duplicate_slices"):
-            # Duplicating slices as well, mapping old ids to new ones
-            for slc in original_dash.slices:
-                new_slice = slc.clone()
-                new_slice.owners = [g.user] if g.user else []
-                db.session.add(new_slice)
-                db.session.flush()
-                new_slice.dashboards.append(dash)
-                old_to_new_slice_ids[slc.id] = new_slice.id
-
-            # update chartId of layout entities
-            for value in metadata["positions"].values():
-                if isinstance(value, dict) and value.get("meta", {}).get("chartId"):
-                    old_id = value["meta"]["chartId"]
-                    new_id = old_to_new_slice_ids.get(old_id)
-                    value["meta"]["chartId"] = new_id
-        else:
-            dash.slices = original_dash.slices
-
-        cls.set_dash_metadata(dash, metadata, old_to_new_slice_ids)
-        db.session.add(dash)
-        db.session.commit()
-        return dash
-
-    @staticmethod
-    def add_favorite(dashboard: Dashboard) -> None:
-        ids = DashboardDAO.favorited_ids([dashboard])
-        if dashboard.id not in ids:
-            db.session.add(
-                FavStar(
-                    class_name=FavStarClassName.DASHBOARD,
-                    obj_id=dashboard.id,
-                    user_id=get_user_id(),
-                    dttm=datetime.now(),
-                )
-            )
-            db.session.commit()
-
-    @staticmethod
-    def remove_favorite(dashboard: Dashboard) -> None:
-        fav = (
-            db.session.query(FavStar)
-            .filter(
-                FavStar.class_name == FavStarClassName.DASHBOARD,
-                FavStar.obj_id == dashboard.id,
-                FavStar.user_id == get_user_id(),
-            )
-            .one_or_none()
-        )
-        if fav:
-            db.session.delete(fav)
-            db.session.commit()

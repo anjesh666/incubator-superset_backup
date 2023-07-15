@@ -23,21 +23,15 @@ import { render, screen, waitFor } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
 import fetchMock from 'fetch-mock';
 import * as chartAction from 'src/components/Chart/chartAction';
-import * as saveModalActions from 'src/explore/actions/saveModalActions';
 import * as downloadAsImage from 'src/utils/downloadAsImage';
 import * as exploreUtils from 'src/explore/exploreUtils';
-import { FeatureFlag } from '@superset-ui/core';
 import ExploreHeader from '.';
 
 const chartEndpoint = 'glob:*api/v1/chart/*';
 
 fetchMock.get(chartEndpoint, { json: 'foo' });
 
-window.featureFlags = {
-  [FeatureFlag.EMBEDDABLE_CHARTS]: true,
-};
-
-const createProps = (additionalProps = {}) => ({
+const createProps = () => ({
   chart: {
     id: 1,
     latestQueryFormData: {
@@ -64,7 +58,7 @@ const createProps = (additionalProps = {}) => ({
     changed_on: '2021-03-19T16:30:56.750230',
     changed_on_humanized: '7 days ago',
     datasource: 'FCC 2018 Survey',
-    description: 'Simple description',
+    description: null,
     description_markeddown: '',
     edit_url: '/chart/edit/318',
     form_data: {
@@ -107,18 +101,10 @@ const createProps = (additionalProps = {}) => ({
   user: {
     userId: 1,
   },
-  metadata: {
-    created_on_humanized: 'a week ago',
-    changed_on_humanized: '2 days ago',
-    owners: ['John Doe'],
-    created_by: 'John Doe',
-    changed_by: 'John Doe',
-    dashboards: [{ id: 1, dashboard_title: 'Test' }],
-  },
+  onSaveChart: jest.fn(),
   canOverwrite: false,
   canDownload: false,
   isStarred: false,
-  ...additionalProps,
 });
 
 fetchMock.post(
@@ -129,19 +115,16 @@ fetchMock.post(
   },
 );
 
-test('Cancelling changes to the properties should reset previous properties', async () => {
+test('Cancelling changes to the properties should reset previous properties', () => {
   const props = createProps();
   render(<ExploreHeader {...props} />, { useRedux: true });
   const newChartName = 'New chart name';
   const prevChartName = props.slice_name;
-  expect(
-    await screen.findByText(/add the name of the chart/i),
-  ).toBeInTheDocument();
 
   userEvent.click(screen.getByLabelText('Menu actions trigger'));
   userEvent.click(screen.getByText('Edit chart properties'));
 
-  const nameInput = await screen.findByRole('textbox', { name: 'Name' });
+  const nameInput = screen.getByRole('textbox', { name: 'Name' });
 
   userEvent.clear(nameInput);
   userEvent.type(nameInput, newChartName);
@@ -153,80 +136,31 @@ test('Cancelling changes to the properties should reset previous properties', as
   userEvent.click(screen.getByLabelText('Menu actions trigger'));
   userEvent.click(screen.getByText('Edit chart properties'));
 
-  expect(await screen.findByDisplayValue(prevChartName)).toBeInTheDocument();
+  expect(screen.getByDisplayValue(prevChartName)).toBeInTheDocument();
 });
 
-test('renders the metadata bar when saved', async () => {
-  const props = createProps({ showTitlePanelItems: true });
-  render(<ExploreHeader {...props} />, { useRedux: true });
-  expect(await screen.findByText('Added to 1 dashboard')).toBeInTheDocument();
-  expect(await screen.findByText('Simple description')).toBeInTheDocument();
-  expect(await screen.findByText('John Doe')).toBeInTheDocument();
-  expect(await screen.findByText('2 days ago')).toBeInTheDocument();
-});
-
-test('Changes "Added to X dashboards" to plural when more than 1 dashboard', async () => {
-  const props = createProps({ showTitlePanelItems: true });
-  render(
-    <ExploreHeader
-      {...props}
-      metadata={{
-        ...props.metadata,
-        dashboards: [
-          { id: 1, dashboard_title: 'Test' },
-          { id: 2, dashboard_title: 'Test2' },
-        ],
-      }}
-    />,
-    { useRedux: true },
-  );
-  expect(await screen.findByText('Added to 2 dashboards')).toBeInTheDocument();
-});
-
-test('does not render the metadata bar when not saved', async () => {
-  const props = createProps({ showTitlePanelItems: true, slice: null });
-  render(<ExploreHeader {...props} />, { useRedux: true });
-  await waitFor(() =>
-    expect(screen.queryByText('Added to 1 dashboard')).not.toBeInTheDocument(),
-  );
-});
-
-test('Save chart', async () => {
-  const setSaveChartModalVisibility = jest.spyOn(
-    saveModalActions,
-    'setSaveChartModalVisibility',
-  );
+test('Save chart', () => {
   const props = createProps();
   render(<ExploreHeader {...props} />, { useRedux: true });
-  expect(await screen.findByText('Save')).toBeInTheDocument();
   userEvent.click(screen.getByText('Save'));
-  expect(setSaveChartModalVisibility).toHaveBeenCalledWith(true);
-  setSaveChartModalVisibility.mockClear();
+  expect(props.onSaveChart).toHaveBeenCalled();
 });
 
-test('Save disabled', async () => {
-  const setSaveChartModalVisibility = jest.spyOn(
-    saveModalActions,
-    'setSaveChartModalVisibility',
-  );
+test('Save disabled', () => {
   const props = createProps();
   render(<ExploreHeader {...props} saveDisabled />, { useRedux: true });
-  expect(await screen.findByText('Save')).toBeInTheDocument();
   userEvent.click(screen.getByText('Save'));
-  expect(setSaveChartModalVisibility).not.toHaveBeenCalled();
-  setSaveChartModalVisibility.mockClear();
+  expect(props.onSaveChart).not.toHaveBeenCalled();
 });
 
 describe('Additional actions tests', () => {
-  test('Should render a button', async () => {
+  test('Should render a button', () => {
     const props = createProps();
     render(<ExploreHeader {...props} />, { useRedux: true });
-    expect(
-      await screen.findByLabelText('Menu actions trigger'),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Menu actions trigger')).toBeInTheDocument();
   });
 
-  test('Should open a menu', async () => {
+  test('Should open a menu', () => {
     const props = createProps();
     render(<ExploreHeader {...props} />, {
       useRedux: true,
@@ -234,9 +168,7 @@ describe('Additional actions tests', () => {
 
     userEvent.click(screen.getByLabelText('Menu actions trigger'));
 
-    expect(
-      await screen.findByText('Edit chart properties'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Edit chart properties')).toBeInTheDocument();
     expect(screen.getByText('Download')).toBeInTheDocument();
     expect(screen.getByText('Share')).toBeInTheDocument();
     expect(screen.getByText('View query')).toBeInTheDocument();
@@ -320,12 +252,11 @@ describe('Additional actions tests', () => {
     await waitFor(() => expect(getChartDataRequest).toBeCalledTimes(1));
   });
 
-  test('Should call onOpenInEditor when click on "Run in SQL Lab"', async () => {
+  test('Should call onOpenInEditor when click on "Run in SQL Lab"', () => {
     const props = createProps();
     render(<ExploreHeader {...props} />, {
       useRedux: true,
     });
-    expect(await screen.findByText('Save')).toBeInTheDocument();
 
     expect(props.actions.redirectSQLLab).toBeCalledTimes(0);
     userEvent.click(screen.getByLabelText('Menu actions trigger'));
@@ -347,7 +278,6 @@ describe('Additional actions tests', () => {
       spyDownloadAsImage.restore();
       spyExportChart.restore();
     });
-
     test('Should call downloadAsImage when click on "Download as image"', async () => {
       const props = createProps();
       const spy = jest.spyOn(downloadAsImage, 'default');

@@ -17,17 +17,20 @@
  * under the License.
  */
 import React from 'react';
-import persistState from 'redux-localstorage';
+import { createStore, compose, applyMiddleware } from 'redux';
 import { Provider } from 'react-redux';
+import thunkMiddleware from 'redux-thunk';
 import { hot } from 'react-hot-loader/root';
-import { FeatureFlag, ThemeProvider } from '@superset-ui/core';
+import { ThemeProvider } from '@superset-ui/core';
 import { GlobalStyles } from 'src/GlobalStyles';
-import { initFeatureFlags, isFeatureEnabled } from 'src/featureFlags';
-import { setupStore } from 'src/views/store';
-import setupExtensions from 'src/setup/setupExtensions';
-import getBootstrapData from 'src/utils/getBootstrapData';
+import {
+  initFeatureFlags,
+  isFeatureEnabled,
+  FeatureFlag,
+} from 'src/featureFlags';
 import getInitialState from './reducers/getInitialState';
-import { reducers } from './reducers/index';
+import rootReducer from './reducers/index';
+import { initEnhancer } from '../reduxUtils';
 import App from './components/App';
 import {
   emptyQueryResults,
@@ -36,14 +39,14 @@ import {
 import { BYTES_PER_CHAR, KB_STORAGE } from './constants';
 import setupApp from '../setup/setupApp';
 
+import './main.less';
 import '../assets/stylesheets/reactable-pagination.less';
 import { theme } from '../preamble';
-import { SqlLabGlobalStyles } from './SqlLabGlobalStyles';
 
 setupApp();
-setupExtensions();
 
-const bootstrapData = getBootstrapData();
+const appContainer = document.getElementById('app');
+const bootstrapData = JSON.parse(appContainer.getAttribute('data-bootstrap'));
 
 initFeatureFlags(bootstrapData.common.feature_flags);
 
@@ -64,9 +67,6 @@ const sqlLabPersistStateConfig = {
             ...state[path],
             queries: emptyQueryResults(state[path].queries),
             queryEditors: clearQueryEditors(state[path].queryEditors),
-            unsavedQueryEditor: clearQueryEditors([
-              state[path].unsavedQueryEditor,
-            ])[0],
           };
         }
       });
@@ -91,12 +91,6 @@ const sqlLabPersistStateConfig = {
       const result = {
         ...initialState,
         ...persistedState,
-        sqlLab: {
-          ...(persistedState?.sqlLab || {}),
-          // Overwrite initialState over persistedState for sqlLab
-          // since a logic in getInitialState overrides the value from persistedState
-          ...initialState.sqlLab,
-        },
       };
       // Filter out any user data that may have been persisted in an older version.
       // Get user from bootstrap data instead, every time
@@ -106,18 +100,17 @@ const sqlLabPersistStateConfig = {
   },
 };
 
-export const store = setupStore({
+const store = createStore(
+  rootReducer,
   initialState,
-  rootReducers: reducers,
-  ...(!isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE) && {
-    enhancers: [
-      persistState(
-        sqlLabPersistStateConfig.paths,
-        sqlLabPersistStateConfig.config,
-      ),
-    ],
-  }),
-});
+  compose(
+    applyMiddleware(thunkMiddleware),
+    initEnhancer(
+      !isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE),
+      sqlLabPersistStateConfig,
+    ),
+  ),
+);
 
 // Highlight the navbar menu
 const menus = document.querySelectorAll('.nav.navbar-nav li.dropdown');
@@ -135,7 +128,6 @@ const Application = () => (
   <Provider store={store}>
     <ThemeProvider theme={theme}>
       <GlobalStyles />
-      <SqlLabGlobalStyles />
       <App />
     </ThemeProvider>
   </Provider>

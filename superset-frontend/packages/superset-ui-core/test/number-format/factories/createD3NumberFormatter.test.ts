@@ -62,7 +62,7 @@ describe('createD3NumberFormatter(config)', () => {
     });
   });
   describe('config.description', () => {
-    it('set description if specified', () => {
+    it('set decription if specified', () => {
       const formatter = createD3NumberFormatter({
         description: 'lorem ipsum',
         formatString: '.2f',

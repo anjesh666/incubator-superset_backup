@@ -17,13 +17,7 @@
  * under the License.
  */
 import { Preset } from '@superset-ui/core';
-import {
-  render,
-  cleanup,
-  screen,
-  within,
-  waitFor,
-} from 'spec/helpers/testing-library';
+import { render, cleanup, screen, within } from 'spec/helpers/testing-library';
 import { stateWithoutNativeFilters } from 'spec/fixtures/mockStore';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
@@ -40,7 +34,7 @@ import {
 } from '@superset-ui/plugin-chart-echarts';
 import TableChartPlugin from '@superset-ui/plugin-chart-table';
 import { LineChartPlugin } from '@superset-ui/preset-chart-xy';
-import TimeTableChartPlugin from 'src/visualizations/TimeTable';
+import TimeTableChartPlugin from '../../../../visualizations/TimeTable';
 import VizTypeControl, { VIZ_TYPE_CONTROL_TEST_ID } from './index';
 
 jest.useFakeTimers();
@@ -96,31 +90,30 @@ describe('VizTypeControl', () => {
     isModalOpenInit: true,
   };
 
-  const waitForRenderWrapper = (
+  const renderWrapper = (
     props: typeof defaultProps = defaultProps,
     state: object = stateWithoutNativeFilters,
-  ) =>
-    waitFor(() => {
-      render(
-        <DynamicPluginProvider>
-          <VizTypeControl {...props} />
-        </DynamicPluginProvider>,
-        { useRedux: true, initialState: state },
-      );
-    });
+  ) => {
+    render(
+      <DynamicPluginProvider>
+        <VizTypeControl {...props} />
+      </DynamicPluginProvider>,
+      { useRedux: true, initialState: state },
+    );
+  };
 
   afterEach(() => {
     cleanup();
     jest.clearAllMocks();
   });
 
-  it('Fast viz switcher tiles render', async () => {
+  it('Fast viz switcher tiles render', () => {
     const props = {
       ...defaultProps,
       value: 'echarts_timeseries_line',
       isModalOpenInit: false,
     };
-    await waitForRenderWrapper(props);
+    renderWrapper(props);
     expect(screen.getByLabelText('line-chart-tile')).toBeVisible();
     expect(screen.getByLabelText('table-chart-tile')).toBeVisible();
     expect(screen.getByLabelText('big-number-chart-tile')).toBeVisible();
@@ -128,7 +121,9 @@ describe('VizTypeControl', () => {
     expect(screen.getByLabelText('bar-chart-tile')).toBeVisible();
     expect(screen.getByLabelText('area-chart-tile')).toBeVisible();
     expect(screen.queryByLabelText('monitor')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('check-square')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('current-rendered-tile'),
+    ).not.toBeInTheDocument();
 
     expect(
       within(screen.getByTestId('fast-viz-switcher')).getByText(
@@ -146,7 +141,7 @@ describe('VizTypeControl', () => {
     ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('fast-viz-switcher')).getByText(
-        'Time-series Bar Chart',
+        'Time-series Bar Chart v2',
       ),
     ).toBeInTheDocument();
     expect(
@@ -159,13 +154,13 @@ describe('VizTypeControl', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('Render viz tiles when non-featured chart is selected', async () => {
+  it('Render viz tiles when non-featured chart is selected', () => {
     const props = {
       ...defaultProps,
       value: 'line',
       isModalOpenInit: false,
     };
-    await waitForRenderWrapper(props);
+    renderWrapper(props);
 
     expect(screen.getByLabelText('monitor')).toBeVisible();
     expect(
@@ -173,7 +168,7 @@ describe('VizTypeControl', () => {
     ).toBeVisible();
   });
 
-  it('Render viz tiles when non-featured is rendered', async () => {
+  it('Render viz tiles when non-featured is rendered', () => {
     const props = {
       ...defaultProps,
       value: 'line',
@@ -193,20 +188,20 @@ describe('VizTypeControl', () => {
         },
       },
     };
-    await waitForRenderWrapper(props, state);
-    expect(screen.getByLabelText('check-square')).toBeVisible();
+    renderWrapper(props, state);
+    expect(screen.getByLabelText('current-rendered-tile')).toBeVisible();
     expect(
       within(screen.getByTestId('fast-viz-switcher')).getByText('Line Chart'),
     ).toBeVisible();
   });
 
-  it('Change viz type on click', async () => {
+  it('Change viz type on click', () => {
     const props = {
       ...defaultProps,
       value: 'echarts_timeseries_line',
       isModalOpenInit: false,
     };
-    await waitForRenderWrapper(props);
+    renderWrapper(props);
     userEvent.click(
       within(screen.getByTestId('fast-viz-switcher')).getByText(
         'Time-series Line Chart',
@@ -220,7 +215,7 @@ describe('VizTypeControl', () => {
   });
 
   it('Open viz gallery modal on "View all charts" click', async () => {
-    await waitForRenderWrapper({ ...defaultProps, isModalOpenInit: false });
+    renderWrapper({ ...defaultProps, isModalOpenInit: false });
     expect(
       screen.queryByText('Select a visualization type'),
     ).not.toBeInTheDocument();
@@ -231,7 +226,7 @@ describe('VizTypeControl', () => {
   });
 
   it('Search visualization type', async () => {
-    await waitForRenderWrapper();
+    renderWrapper();
 
     const visualizations = screen.getByTestId(getTestId('viz-row'));
 
@@ -258,7 +253,7 @@ describe('VizTypeControl', () => {
       within(visualizations).getByText('Time-series Line Chart'),
     ).toBeVisible();
     expect(
-      within(visualizations).getByText('Time-series Bar Chart'),
+      within(visualizations).getByText('Time-series Bar Chart v2'),
     ).toBeVisible();
     expect(
       within(visualizations).queryByText('Line Chart'),
@@ -272,11 +267,13 @@ describe('VizTypeControl', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('Submit on viz type double-click', async () => {
-    await waitForRenderWrapper();
+  it('Submit on viz type double-click', () => {
+    renderWrapper();
     userEvent.click(screen.getByRole('button', { name: 'ballot All charts' }));
     const visualizations = screen.getByTestId(getTestId('viz-row'));
-    userEvent.click(within(visualizations).getByText('Time-series Bar Chart'));
+    userEvent.click(
+      within(visualizations).getByText('Time-series Bar Chart v2'),
+    );
 
     expect(defaultProps.onChange).not.toBeCalled();
     userEvent.dblClick(

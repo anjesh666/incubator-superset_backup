@@ -20,41 +20,27 @@ import React from 'react';
 import rison from 'rison';
 import moment from 'moment';
 import { t } from '@superset-ui/core';
-import { DashboardResponse, BootstrapUser } from 'src/types/bootstrapTypes';
+
 import TableLoader from '../../components/TableLoader';
-import { Chart } from '../types';
+import { Slice } from '../types';
+import { User, DashboardResponse } from '../../types/bootstrapTypes';
 
 interface FavoritesProps {
-  user: BootstrapUser;
+  user: User;
 }
 
 export default class Favorites extends React.PureComponent<FavoritesProps> {
   renderSliceTable() {
-    const mutator = (payload: { result: Chart[] }) =>
-      payload.result.map(slice => ({
-        slice: <a href={slice.slice_url}>{slice.slice_name}</a>,
-        creator: <a href={slice.created_by_url}>{slice.created_by_name}</a>,
-        favorited: moment.utc(slice.changed_on_dttm).fromNow(),
-        _favorited: slice.changed_on_dttm,
+    const mutator = (data: Slice[]) =>
+      data.map(slice => ({
+        slice: <a href={slice.url}>{slice.title}</a>,
+        creator: <a href={slice.creator_url}>{slice.creator}</a>,
+        favorited: moment.utc(slice.dttm).fromNow(),
+        _favorited: slice.dttm,
       }));
-
-    const query = rison.encode({
-      filters: [
-        {
-          col: 'id',
-          opr: 'chart_is_favorite',
-          value: true,
-        },
-      ],
-      order_column: 'slice_name',
-      order_direction: 'asc',
-      page: 0,
-      page_size: 25,
-    });
-
     return (
       <TableLoader
-        dataEndpoint={`/api/v1/chart/?q=${query}`}
+        dataEndpoint={`/superset/fave_slices/${this.props.user.userId}/`}
         className="table-condensed"
         columns={['slice', 'creator', 'favorited']}
         mutator={mutator}

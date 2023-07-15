@@ -82,9 +82,9 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
               label: t('Value Domain'),
               choices: [
-                ['series', t('series')],
-                ['overall', t('overall')],
-                ['change', t('change')],
+                ['series', 'series'],
+                ['overall', 'overall'],
+                ['change', 'change'],
               ],
               default: 'series',
               description: t(

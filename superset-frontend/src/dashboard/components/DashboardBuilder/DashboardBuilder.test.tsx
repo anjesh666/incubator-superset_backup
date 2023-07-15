@@ -21,10 +21,9 @@ import React from 'react';
 import fetchMock from 'fetch-mock';
 import { render } from 'spec/helpers/testing-library';
 import { fireEvent, within } from '@testing-library/react';
-import { FeatureFlag } from '@superset-ui/core';
-import { isFeatureEnabled } from 'src/featureFlags';
+import { FeatureFlag, isFeatureEnabled } from 'src/featureFlags';
 import DashboardBuilder from 'src/dashboard/components/DashboardBuilder/DashboardBuilder';
-import useStoredSidebarWidth from 'src/components/ResizableSidebar/useStoredSidebarWidth';
+import useStoredFilterBarWidth from 'src/dashboard/components/DashboardBuilder/useStoredFilterBarWidth';
 import {
   fetchFaveStar,
   setActiveTabs,
@@ -47,13 +46,16 @@ jest.mock('src/dashboard/actions/dashboardState', () => ({
   setDirectPathToChild: jest.fn(),
 }));
 jest.mock('src/featureFlags');
-jest.mock('src/components/ResizableSidebar/useStoredSidebarWidth');
+jest.mock('src/dashboard/components/DashboardBuilder/useStoredFilterBarWidth');
 
 // mock following dependant components to fix the prop warnings
-jest.mock('src/components/DeprecatedSelect/WindowedSelect', () => () => (
+jest.mock('src/components/Icons/Icon', () => () => (
+  <div data-test="mock-icon" />
+));
+jest.mock('src/components/Select/WindowedSelect', () => () => (
   <div data-test="mock-windowed-select" />
 ));
-jest.mock('src/components/DeprecatedSelect', () => () => (
+jest.mock('src/components/Select', () => () => (
   <div data-test="mock-deprecated-select" />
 ));
 jest.mock('src/components/Select/Select', () => () => (
@@ -96,7 +98,7 @@ describe('DashboardBuilder', () => {
     activeTabsStub = (setActiveTabs as jest.Mock).mockReturnValue({
       type: 'mock-action',
     });
-    (useStoredSidebarWidth as jest.Mock).mockImplementation(() => [
+    (useStoredFilterBarWidth as jest.Mock).mockImplementation(() => [
       100,
       jest.fn(),
     ]);
@@ -106,7 +108,7 @@ describe('DashboardBuilder', () => {
   afterAll(() => {
     favStarStub.mockReset();
     activeTabsStub.mockReset();
-    (useStoredSidebarWidth as jest.Mock).mockReset();
+    (useStoredFilterBarWidth as jest.Mock).mockReset();
   });
 
   function setup(overrideState = {}, overrideStore?: Store) {
@@ -123,7 +125,7 @@ describe('DashboardBuilder', () => {
 
   it('should render a StickyContainer with class "dashboard"', () => {
     const { getByTestId } = setup();
-    const stickyContainer = getByTestId('dashboard-content-wrapper');
+    const stickyContainer = getByTestId('dashboard-content');
     expect(stickyContainer).toHaveClass('dashboard');
   });
 
@@ -131,7 +133,7 @@ describe('DashboardBuilder', () => {
     const { getByTestId } = setup({
       dashboardState: { ...mockState.dashboardState, editMode: true },
     });
-    const stickyContainer = getByTestId('dashboard-content-wrapper');
+    const stickyContainer = getByTestId('dashboard-content');
     expect(stickyContainer).toHaveClass('dashboard dashboard--editing');
   });
 
@@ -247,20 +249,6 @@ describe('DashboardBuilder', () => {
     (setDirectPathToChild as jest.Mock).mockReset();
   });
 
-  it('should not display a loading spinner when saving is not in progress', () => {
-    const { queryByAltText } = setup();
-
-    expect(queryByAltText('Loading...')).not.toBeInTheDocument();
-  });
-
-  it('should display a loading spinner when saving is in progress', async () => {
-    const { findByAltText } = setup({
-      dashboardState: { dashboardIsSaving: true },
-    });
-
-    expect(await findByAltText('Loading...')).toBeVisible();
-  });
-
   describe('when nativeFiltersEnabled', () => {
     beforeEach(() => {
       (isFeatureEnabled as jest.Mock).mockImplementation(
@@ -271,10 +259,10 @@ describe('DashboardBuilder', () => {
       (isFeatureEnabled as jest.Mock).mockReset();
     });
 
-    it('should set FilterBar width by useStoredSidebarWidth', () => {
+    it('should set FilterBar width by useStoredFilterBarWidth', () => {
       const expectedValue = 200;
       const setter = jest.fn();
-      (useStoredSidebarWidth as jest.Mock).mockImplementation(() => [
+      (useStoredFilterBarWidth as jest.Mock).mockImplementation(() => [
         expectedValue,
         setter,
       ]);
@@ -282,6 +270,7 @@ describe('DashboardBuilder', () => {
         dashboardInfo: {
           ...mockState.dashboardInfo,
           dash_edit_perm: true,
+          metadata: { show_native_filters: true },
         },
       });
       const filterbar = getByTestId('dashboard-filters-panel');

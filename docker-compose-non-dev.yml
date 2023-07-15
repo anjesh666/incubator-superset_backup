@@ -26,7 +26,7 @@ x-superset-volumes: &superset-volumes
 version: "3.7"
 services:
   redis:
-    image: redis:7
+    image: redis:latest
     container_name: superset_cache
     restart: unless-stopped
     volumes:
@@ -34,7 +34,7 @@ services:
 
   db:
     env_file: docker/.env-non-dev
-    image: postgres:14
+    image: postgres:10
     container_name: superset_db
     restart: unless-stopped
     volumes:
@@ -60,8 +60,6 @@ services:
     depends_on: *superset-depends-on
     user: "root"
     volumes: *superset-volumes
-    healthcheck:
-      disable: true
 
   superset-worker:
     image: *superset-image
@@ -72,8 +70,6 @@ services:
     depends_on: *superset-depends-on
     user: "root"
     volumes: *superset-volumes
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME"]
 
   superset-worker-beat:
     image: *superset-image
@@ -84,8 +80,6 @@ services:
     depends_on: *superset-depends-on
     user: "root"
     volumes: *superset-volumes
-    healthcheck:
-      disable: true
 
 volumes:
   superset_home:

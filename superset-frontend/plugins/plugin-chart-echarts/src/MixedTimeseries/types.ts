@@ -16,24 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { EChartsCoreOption } from 'echarts';
 import {
   AnnotationLayer,
   TimeGranularity,
+  DataRecordValue,
+  SetDataMaskHook,
   QueryFormData,
+  ChartProps,
+  ChartDataResponseResult,
   QueryFormColumn,
   ContributionType,
-  TimeFormatter,
-  AxisType,
 } from '@superset-ui/core';
 import {
-  BaseChartProps,
-  BaseTransformedProps,
-  ContextMenuTransformedProps,
-  CrossFilterTransformedProps,
-  EchartsTimeseriesSeriesType,
-  LegendFormData,
+  EchartsLegendFormData,
+  EchartsTitleFormData,
   StackType,
-  TitleFormData,
+  EchartsTimeseriesSeriesType,
 } from '../types';
 import {
   DEFAULT_LEGEND_FORM_DATA,
@@ -86,8 +85,9 @@ export type EchartsMixedTimeseriesFormData = QueryFormData & {
   yAxisIndexB?: number;
   groupby: QueryFormColumn[];
   groupbyB: QueryFormColumn[];
-} & LegendFormData &
-  TitleFormData;
+  emitFilter: boolean;
+} & EchartsLegendFormData &
+  EchartsTitleFormData;
 
 // @ts-ignore
 export const DEFAULT_FORM_DATA: EchartsMixedTimeseriesFormData = {
@@ -133,21 +133,23 @@ export const DEFAULT_FORM_DATA: EchartsMixedTimeseriesFormData = {
   ...DEFAULT_TITLE_FORM_DATA,
 };
 
-export interface EchartsMixedTimeseriesProps
-  extends BaseChartProps<EchartsMixedTimeseriesFormData> {
+export interface EchartsMixedTimeseriesProps extends ChartProps {
   formData: EchartsMixedTimeseriesFormData;
+  queriesData: ChartDataResponseResult[];
 }
 
-export type EchartsMixedTimeseriesChartTransformedProps =
-  BaseTransformedProps<EchartsMixedTimeseriesFormData> &
-    ContextMenuTransformedProps &
-    CrossFilterTransformedProps & {
-      groupbyB: QueryFormColumn[];
-      labelMapB: Record<string, string[]>;
-      seriesBreakdown: number;
-      xValueFormatter: TimeFormatter | StringConstructor;
-      xAxis: {
-        label: string;
-        type: AxisType;
-      };
-    };
+export type EchartsMixedTimeseriesChartTransformedProps = {
+  formData: EchartsMixedTimeseriesFormData;
+  height: number;
+  width: number;
+  echartOptions: EChartsCoreOption;
+  emitFilter: boolean;
+  emitFilterB: boolean;
+  setDataMask: SetDataMaskHook;
+  groupby: QueryFormColumn[];
+  groupbyB: QueryFormColumn[];
+  labelMap: Record<string, DataRecordValue[]>;
+  labelMapB: Record<string, DataRecordValue[]>;
+  selectedValues: Record<number, string>;
+  seriesBreakdown: number;
+};

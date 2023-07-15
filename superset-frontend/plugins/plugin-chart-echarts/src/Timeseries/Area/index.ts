@@ -22,7 +22,8 @@ import {
   ChartPlugin,
   AnnotationType,
   Behavior,
-  hasGenericChartAxes,
+  isFeatureEnabled,
+  FeatureFlag,
 } from '@superset-ui/core';
 import buildQuery from '../buildQuery';
 import controlPanel from './controlPanel';
@@ -50,14 +51,10 @@ export default class EchartsAreaChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('../EchartsTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t(
               'Area charts are similar to line charts in that they represent variables with the same scale, but area charts stack the metrics on top of each other.',
             )
@@ -71,8 +68,8 @@ export default class EchartsAreaChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        name: hasGenericChartAxes
-          ? t('Area Chart')
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
+          ? t('Area Chart v2')
           : t('Time-series Area Chart'),
         tags: [
           t('ECharts'),

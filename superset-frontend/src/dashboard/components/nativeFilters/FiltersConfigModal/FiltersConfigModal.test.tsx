@@ -32,7 +32,8 @@ import {
   TimeFilterPlugin,
   TimeGrainFilterPlugin,
 } from 'src/filters/components';
-import FiltersConfigModal, {
+import {
+  FiltersConfigModal,
   FiltersConfigModalProps,
 } from './FiltersConfigModal';
 

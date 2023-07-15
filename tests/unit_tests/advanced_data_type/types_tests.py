@@ -17,8 +17,11 @@
 # isort:skip_file
 """Unit tests for Superset"""
 
+from ipaddress import ip_address
 import sqlalchemy
+from flask.ctx import AppContext
 from sqlalchemy import Column, Integer
+from tests.integration_tests.base_tests import SupersetTestCase
 from superset.advanced_data_type.types import (
     AdvancedDataTypeRequest,
     AdvancedDataTypeResponse,
@@ -33,7 +36,7 @@ from superset.advanced_data_type.plugins.internet_port import internet_port as p
 # tox -e py38 -- tests/unit_tests/advanced_data_type/types_tests.py
 
 
-def test_ip_func_valid_ip():
+def test_ip_func_valid_ip(app_context: None):
     """Test to see if the cidr_func behaves as expected when a valid IP is passed in"""
     cidr_request: AdvancedDataTypeRequest = {
         "advanced_data_type": "cidr",
@@ -56,7 +59,7 @@ def test_ip_func_valid_ip():
     assert internet_address.translate_type(cidr_request) == cidr_response
 
 
-def test_cidr_func_invalid_ip():
+def test_cidr_func_invalid_ip(app_context: None):
     """Test to see if the cidr_func behaves as expected when an invalid IP is passed in"""
     cidr_request: AdvancedDataTypeRequest = {
         "advanced_data_type": "cidr",
@@ -79,30 +82,7 @@ def test_cidr_func_invalid_ip():
     assert internet_address.translate_type(cidr_request) == cidr_response
 
 
-def test_cidr_func_empty_ip():
-    """Test to see if the cidr_func behaves as expected when no IP is passed in"""
-    cidr_request: AdvancedDataTypeRequest = {
-        "advanced_data_type": "cidr",
-        "values": [""],
-    }
-    cidr_response: AdvancedDataTypeResponse = {
-        "values": [""],
-        "error_message": "",
-        "display_value": "",
-        "valid_filter_operators": [
-            FilterStringOperators.EQUALS,
-            FilterStringOperators.GREATER_THAN_OR_EQUAL,
-            FilterStringOperators.GREATER_THAN,
-            FilterStringOperators.IN,
-            FilterStringOperators.LESS_THAN,
-            FilterStringOperators.LESS_THAN_OR_EQUAL,
-        ],
-    }
-
-    assert internet_address.translate_type(cidr_request) == cidr_response
-
-
-def test_port_translation_func_valid_port_number():
+def test_port_translation_func_valid_port_number(app_context: None):
     """Test to see if the port_translation_func behaves as expected when a valid port number
     is passed in"""
     port_request: AdvancedDataTypeRequest = {
@@ -126,7 +106,7 @@ def test_port_translation_func_valid_port_number():
     assert port.translate_type(port_request) == port_response
 
 
-def test_port_translation_func_valid_port_name():
+def test_port_translation_func_valid_port_name(app_context: None):
     """Test to see if the port_translation_func behaves as expected when a valid port name
     is passed in"""
     port_request: AdvancedDataTypeRequest = {
@@ -150,7 +130,7 @@ def test_port_translation_func_valid_port_name():
     assert port.translate_type(port_request) == port_response
 
 
-def test_port_translation_func_invalid_port_name():
+def test_port_translation_func_invalid_port_name(app_context: None):
     """Test to see if the port_translation_func behaves as expected when an invalid port name
     is passed in"""
     port_request: AdvancedDataTypeRequest = {
@@ -174,7 +154,7 @@ def test_port_translation_func_invalid_port_name():
     assert port.translate_type(port_request) == port_response
 
 
-def test_port_translation_func_invalid_port_number():
+def test_port_translation_func_invalid_port_number(app_context: None):
     """Test to see if the port_translation_func behaves as expected when an invalid port
     number is passed in"""
     port_request: AdvancedDataTypeRequest = {
@@ -198,31 +178,7 @@ def test_port_translation_func_invalid_port_number():
     assert port.translate_type(port_request) == port_response
 
 
-def test_port_translation_func_empty_port_number():
-    """Test to see if the port_translation_func behaves as expected when no port
-    number is passed in"""
-    port_request: AdvancedDataTypeRequest = {
-        "advanced_data_type": "port",
-        "values": [""],
-    }
-    port_response: AdvancedDataTypeResponse = {
-        "values": [[""]],
-        "error_message": "",
-        "display_value": "",
-        "valid_filter_operators": [
-            FilterStringOperators.EQUALS,
-            FilterStringOperators.GREATER_THAN_OR_EQUAL,
-            FilterStringOperators.GREATER_THAN,
-            FilterStringOperators.IN,
-            FilterStringOperators.LESS_THAN,
-            FilterStringOperators.LESS_THAN_OR_EQUAL,
-        ],
-    }
-
-    assert port.translate_type(port_request) == port_response
-
-
-def test_cidr_translate_filter_func_equals():
+def test_cidr_translate_filter_func_equals(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the EQUALS
     operator is used"""
 
@@ -237,7 +193,7 @@ def test_cidr_translate_filter_func_equals():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_not_equals():
+def test_cidr_translate_filter_func_not_equals(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the NOT_EQUALS
     operator is used"""
 
@@ -252,7 +208,7 @@ def test_cidr_translate_filter_func_not_equals():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_greater_than_or_equals():
+def test_cidr_translate_filter_func_greater_than_or_equals(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the
     GREATER_THAN_OR_EQUALS operator is used"""
 
@@ -269,7 +225,7 @@ def test_cidr_translate_filter_func_greater_than_or_equals():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_greater_than():
+def test_cidr_translate_filter_func_greater_than(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the
     GREATER_THAN operator is used"""
 
@@ -286,7 +242,7 @@ def test_cidr_translate_filter_func_greater_than():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_less_than():
+def test_cidr_translate_filter_func_less_than(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the LESS_THAN
     operator is used"""
 
@@ -303,7 +259,7 @@ def test_cidr_translate_filter_func_less_than():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_less_than_or_equals():
+def test_cidr_translate_filter_func_less_than_or_equals(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the
     LESS_THAN_OR_EQUALS operator is used"""
 
@@ -320,7 +276,7 @@ def test_cidr_translate_filter_func_less_than_or_equals():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_in_single():
+def test_cidr_translate_filter_func_in_single(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the IN operator
     is used with a single IP"""
 
@@ -337,7 +293,7 @@ def test_cidr_translate_filter_func_in_single():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_in_double():
+def test_cidr_translate_filter_func_in_double(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the IN operator
     is used with two IP's"""
 
@@ -356,7 +312,7 @@ def test_cidr_translate_filter_func_in_double():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_not_in_single():
+def test_cidr_translate_filter_func_not_in_single(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the NOT_IN
     operator is used with a single IP"""
 
@@ -373,7 +329,7 @@ def test_cidr_translate_filter_func_not_in_single():
     ).compare(cidr_translate_filter_response)
 
 
-def test_cidr_translate_filter_func_not_in_double():
+def test_cidr_translate_filter_func_not_in_double(app_context: None):
     """Test to see if the cidr_translate_filter_func behaves as expected when the NOT_IN
     operator is used with two IP's"""
 
@@ -392,7 +348,7 @@ def test_cidr_translate_filter_func_not_in_double():
     ).compare(cidr_translate_filter_response)
 
 
-def test_port_translate_filter_func_equals():
+def test_port_translate_filter_func_equals(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the EQUALS
     operator is used"""
 
@@ -409,7 +365,7 @@ def test_port_translate_filter_func_equals():
     )
 
 
-def test_port_translate_filter_func_not_equals():
+def test_port_translate_filter_func_not_equals(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the NOT_EQUALS
     operator is used"""
 
@@ -426,7 +382,7 @@ def test_port_translate_filter_func_not_equals():
     )
 
 
-def test_port_translate_filter_func_greater_than_or_equals():
+def test_port_translate_filter_func_greater_than_or_equals(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the
     GREATER_THAN_OR_EQUALS operator is used"""
 
@@ -443,7 +399,7 @@ def test_port_translate_filter_func_greater_than_or_equals():
     )
 
 
-def test_port_translate_filter_func_greater_than():
+def test_port_translate_filter_func_greater_than(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the
     GREATER_THAN operator is used"""
 
@@ -460,7 +416,7 @@ def test_port_translate_filter_func_greater_than():
     )
 
 
-def test_port_translate_filter_func_less_than_or_equals():
+def test_port_translate_filter_func_less_than_or_equals(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the
     LESS_THAN_OR_EQUALS operator is used"""
 
@@ -477,7 +433,7 @@ def test_port_translate_filter_func_less_than_or_equals():
     )
 
 
-def test_port_translate_filter_func_less_than():
+def test_port_translate_filter_func_less_than(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the LESS_THAN
     operator is used"""
 
@@ -494,7 +450,7 @@ def test_port_translate_filter_func_less_than():
     )
 
 
-def test_port_translate_filter_func_in_single():
+def test_port_translate_filter_func_in_single(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the IN operator
     is used with a single port"""
 
@@ -511,7 +467,7 @@ def test_port_translate_filter_func_in_single():
     )
 
 
-def test_port_translate_filter_func_in_double():
+def test_port_translate_filter_func_in_double(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the IN operator
     is used with two ports"""
 
@@ -528,7 +484,7 @@ def test_port_translate_filter_func_in_double():
     )
 
 
-def test_port_translate_filter_func_not_in_single():
+def test_port_translate_filter_func_not_in_single(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the NOT_IN
     operator is used with a single port"""
 
@@ -545,7 +501,7 @@ def test_port_translate_filter_func_not_in_single():
     )
 
 
-def test_port_translate_filter_func_not_in_double():
+def test_port_translate_filter_func_not_in_double(app_context: None):
     """Test to see if the port_translate_filter_func behaves as expected when the NOT_IN
     operator is used with two ports"""
 

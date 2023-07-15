@@ -16,8 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { setupStore } from 'src/views/store';
-import { FilterBarOrientation } from 'src/dashboard/types';
+import { createStore, applyMiddleware, compose } from 'redux';
+import thunk from 'redux-thunk';
+
+import { rootReducer } from 'src/views/store';
 
 import mockState from './mockState';
 import {
@@ -29,38 +31,38 @@ import { dashboardFilters } from './mockDashboardFilters';
 import { nativeFilters, dataMaskWith2Filters } from './mockNativeFilters';
 
 export const storeWithState = state =>
-  setupStore({
-    disableDebugger: true,
-    initialState: state,
-  });
+  createStore(rootReducer, state, compose(applyMiddleware(thunk)));
 
 export const getMockStore = overrideState =>
-  setupStore({
-    disableDebugger: true,
-    initialState: { ...mockState, ...overrideState },
-  });
+  createStore(
+    rootReducer,
+    { ...mockState, ...overrideState },
+    compose(applyMiddleware(thunk)),
+  );
 
 export const mockStore = getMockStore();
 
 export const getMockStoreWithTabs = () =>
-  setupStore({
-    disableDebugger: true,
-    initialState: {
+  createStore(
+    rootReducer,
+    {
       ...mockState,
       dashboardLayout: dashboardLayoutWithTabs,
       dashboardFilters: {},
     },
-  });
+    compose(applyMiddleware(thunk)),
+  );
 
 export const getMockStoreWithChartsInTabsAndRoot = () =>
-  setupStore({
-    disableDebugger: true,
-    initialState: {
+  createStore(
+    rootReducer,
+    {
       ...mockState,
       dashboardLayout: dashboardLayoutWithChartsInTabsAndRoot,
       dashboardFilters: {},
     },
-  });
+    compose(applyMiddleware(thunk)),
+  );
 
 export const mockStoreWithTabs = getMockStoreWithTabs();
 export const mockStoreWithChartsInTabsAndRoot =
@@ -69,72 +71,59 @@ export const mockStoreWithChartsInTabsAndRoot =
 export const sliceIdWithAppliedFilter = sliceId + 1;
 export const sliceIdWithRejectedFilter = sliceId + 2;
 
-export const stateWithFilters = {
-  ...mockState,
-  dashboardFilters,
-  dataMask: dataMaskWith2Filters,
-  charts: {
-    ...mockState.charts,
-    [sliceIdWithAppliedFilter]: {
-      ...mockState.charts[sliceId],
-      queryResponse: {
-        status: 'success',
-        applied_filters: [{ column: 'region' }],
-        rejected_filters: [],
-      },
-    },
-    [sliceIdWithRejectedFilter]: {
-      ...mockState.charts[sliceId],
-      queryResponse: {
-        status: 'success',
-        applied_filters: [],
-        rejected_filters: [{ column: 'region', reason: 'not_in_datasource' }],
-      },
-    },
-  },
-};
-
 // has one chart with a filter that has been applied,
 // one chart with a filter that has been rejected,
 // and one chart with no filters set.
 export const getMockStoreWithFilters = () =>
-  setupStore({
-    disableDebugger: true,
-    initialState: stateWithFilters,
+  createStore(rootReducer, {
+    ...mockState,
+    dashboardFilters,
+    dataMask: dataMaskWith2Filters,
+    charts: {
+      ...mockState.charts,
+      [sliceIdWithAppliedFilter]: {
+        ...mockState.charts[sliceId],
+        queryResponse: {
+          status: 'success',
+          applied_filters: [{ column: 'region' }],
+          rejected_filters: [],
+        },
+      },
+      [sliceIdWithRejectedFilter]: {
+        ...mockState.charts[sliceId],
+        queryResponse: {
+          status: 'success',
+          applied_filters: [],
+          rejected_filters: [{ column: 'region', reason: 'not_in_datasource' }],
+        },
+      },
+    },
   });
 
-export const stateWithNativeFilters = {
-  ...mockState,
-  nativeFilters,
-  dataMask: dataMaskWith2Filters,
-  charts: {
-    ...mockState.charts,
-    [sliceIdWithAppliedFilter]: {
-      ...mockState.charts[sliceId],
-      queryResponse: {
-        status: 'success',
-        applied_filters: [{ column: 'region' }],
-        rejected_filters: [],
-      },
-    },
-    [sliceIdWithRejectedFilter]: {
-      ...mockState.charts[sliceId],
-      queryResponse: {
-        status: 'success',
-        applied_filters: [],
-        rejected_filters: [{ column: 'region', reason: 'not_in_datasource' }],
-      },
-    },
-  },
-  dashboardInfo: {
-    filterBarOrientation: FilterBarOrientation.VERTICAL,
-  },
-};
-
 export const getMockStoreWithNativeFilters = () =>
-  setupStore({
-    disableDebugger: true,
-    initialState: stateWithNativeFilters,
+  createStore(rootReducer, {
+    ...mockState,
+    nativeFilters,
+    dataMask: dataMaskWith2Filters,
+    charts: {
+      ...mockState.charts,
+      [sliceIdWithAppliedFilter]: {
+        ...mockState.charts[sliceId],
+        queryResponse: {
+          status: 'success',
+          applied_filters: [{ column: 'region' }],
+          rejected_filters: [],
+        },
+      },
+      [sliceIdWithRejectedFilter]: {
+        ...mockState.charts[sliceId],
+        queryResponse: {
+          status: 'success',
+          applied_filters: [],
+          rejected_filters: [{ column: 'region', reason: 'not_in_datasource' }],
+        },
+      },
+    },
   });
 
 export const stateWithoutNativeFilters = {
@@ -160,7 +149,6 @@ export const stateWithoutNativeFilters = {
   },
   dashboardInfo: {
     dash_edit_perm: true,
-    filterBarOrientation: FilterBarOrientation.VERTICAL,
     metadata: {
       native_filter_configuration: [],
     },

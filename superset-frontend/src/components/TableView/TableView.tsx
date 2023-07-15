@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import isEqual from 'lodash/isEqual';
 import { styled, t } from '@superset-ui/core';
 import { useFilters, usePagination, useSortBy, useTable } from 'react-table';
@@ -49,7 +49,6 @@ export interface TableViewProps {
   isPaginationSticky?: boolean;
   showRowCount?: boolean;
   scrollTable?: boolean;
-  scrollTopOnPagination?: boolean;
   small?: boolean;
   columnsForWrapText?: string[];
 }
@@ -131,7 +130,6 @@ const TableView = ({
   serverPagination = false,
   columnsForWrapText,
   onServerPagination = () => {},
-  scrollTopOnPagination = false,
   ...props
 }: TableViewProps) => {
   const initialState = {
@@ -163,31 +161,6 @@ const TableView = ({
     useSortBy,
     usePagination,
   );
-
-  const content = withPagination ? page : rows;
-
-  let EmptyWrapperComponent;
-  switch (emptyWrapperType) {
-    case EmptyWrapperType.Small:
-      EmptyWrapperComponent = ({ children }: any) => <>{children}</>;
-      break;
-    case EmptyWrapperType.Default:
-    default:
-      EmptyWrapperComponent = ({ children }: any) => (
-        <EmptyWrapper>{children}</EmptyWrapper>
-      );
-  }
-
-  const isEmpty = !loading && content.length === 0;
-  const hasPagination = pageCount > 1 && withPagination;
-  const tableRef = useRef<HTMLTableElement>(null);
-  const handleGotoPage = (p: number) => {
-    if (scrollTopOnPagination) {
-      tableRef?.current?.scroll(0, 0);
-    }
-    gotoPage(p);
-  };
-
   useEffect(() => {
     if (serverPagination && pageIndex !== initialState.pageIndex) {
       onServerPagination({
@@ -205,9 +178,26 @@ const TableView = ({
     }
   }, [sortBy]);
 
+  const content = withPagination ? page : rows;
+
+  let EmptyWrapperComponent;
+  switch (emptyWrapperType) {
+    case EmptyWrapperType.Small:
+      EmptyWrapperComponent = ({ children }: any) => <>{children}</>;
+      break;
+    case EmptyWrapperType.Default:
+    default:
+      EmptyWrapperComponent = ({ children }: any) => (
+        <EmptyWrapper>{children}</EmptyWrapper>
+      );
+  }
+
+  const isEmpty = !loading && content.length === 0;
+  const hasPagination = pageCount > 1 && withPagination;
+
   return (
     <>
-      <TableViewStyles {...props} ref={tableRef}>
+      <TableViewStyles {...props}>
         <TableCollection
           getTableProps={getTableProps}
           getTableBodyProps={getTableBodyProps}
@@ -239,7 +229,7 @@ const TableView = ({
           <Pagination
             totalPages={pageCount || 0}
             currentPage={pageCount ? pageIndex + 1 : 0}
-            onChange={(p: number) => handleGotoPage(p - 1)}
+            onChange={(p: number) => gotoPage(p - 1)}
             hideFirstAndLastPageLinks
           />
           {showRowCount && (

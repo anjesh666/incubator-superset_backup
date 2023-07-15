@@ -61,16 +61,18 @@ export function getHostName(allowDomainSharding = false) {
   return availableDomains[currentIndex];
 }
 
-export function getAnnotationJsonUrl(slice_id, force) {
+export function getAnnotationJsonUrl(slice_id, form_data, isNative, force) {
   if (slice_id === null || slice_id === undefined) {
     return null;
   }
-
   const uri = URI(window.location.search);
+  const endpoint = isNative ? 'annotation_json' : 'slice_json';
   return uri
-    .pathname('/api/v1/chart/data')
+    .pathname(`/superset/${endpoint}/${slice_id}`)
     .search({
-      form_data: safeStringify({ slice_id }),
+      form_data: safeStringify(form_data, (key, value) =>
+        value === null ? undefined : value,
+      ),
       force,
     })
     .toString();
@@ -295,9 +297,7 @@ export const getSimpleSQLExpression = (subject, operator, comparator) => {
     [...MULTI_OPERATORS]
       .map(op => OPERATOR_ENUM_TO_OPERATOR_TYPE[op].operation)
       .indexOf(operator) >= 0;
-  // If returned value is an object after changing dataset
-  let expression =
-    typeof subject === 'object' ? subject?.column_name ?? '' : subject ?? '';
+  let expression = subject ?? '';
   if (subject && operator) {
     expression += ` ${operator}`;
     const firstValue =

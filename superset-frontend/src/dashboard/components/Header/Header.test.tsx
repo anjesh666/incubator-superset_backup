@@ -20,8 +20,6 @@ import React from 'react';
 import { render, screen, fireEvent } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
 import fetchMock from 'fetch-mock';
-import { getExtensionsRegistry } from '@superset-ui/core';
-import setupExtensions from 'src/setup/setupExtensions';
 import { HeaderProps } from './types';
 import Header from '.';
 
@@ -37,12 +35,7 @@ const createProps = () => ({
     userId: '1',
     metadata: {},
     common: {
-      conf: {
-        DASHBOARD_AUTO_REFRESH_INTERVALS: [
-          [0, "Don't refresh"],
-          [10, '10 seconds'],
-        ],
-      },
+      conf: {},
     },
   },
   user: {
@@ -82,8 +75,7 @@ const createProps = () => ({
   setEditMode: jest.fn(),
   showBuilderPane: jest.fn(),
   updateCss: jest.fn(),
-  setColorScheme: jest.fn(),
-  setUnsavedChanges: jest.fn(),
+  setColorSchemeAndUnsavedChanges: jest.fn(),
   logEvent: jest.fn(),
   setRefreshFrequency: jest.fn(),
   hasUnsavedChanges: false,
@@ -334,18 +326,4 @@ test('should refresh the charts', async () => {
   await openActionsDropdown();
   userEvent.click(screen.getByText('Refresh dashboard'));
   expect(mockedProps.onRefresh).toHaveBeenCalledTimes(1);
-});
-
-test('should render an extension component if one is supplied', () => {
-  const extensionsRegistry = getExtensionsRegistry();
-  extensionsRegistry.set('dashboard.nav.right', () => (
-    <>dashboard.nav.right extension component</>
-  ));
-  setupExtensions();
-
-  const mockedProps = createProps();
-  setup(mockedProps);
-  expect(
-    screen.getByText('dashboard.nav.right extension component'),
-  ).toBeInTheDocument();
 });

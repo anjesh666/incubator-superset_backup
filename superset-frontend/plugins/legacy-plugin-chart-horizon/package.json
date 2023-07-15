@@ -5,14 +5,13 @@
   "keywords": [
     "superset"
   ],
-  "homepage": "https://github.com/apache/superset/tree/master/superset-frontend/plugins/legacy-plugin-chart-horizon#readme",
+  "homepage": "https://github.com/apache-superset/superset-ui#readme",
   "bugs": {
-    "url": "https://github.com/apache/superset/issues"
+    "url": "https://github.com/apache-superset/superset-ui/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/superset.git",
-    "directory": "superset-frontend/packages/legacy-plugin-chart-horizon"
+    "url": "git+https://github.com/apache-superset/superset-ui.git"
   },
   "license": "Apache-2.0",
   "author": "Superset",

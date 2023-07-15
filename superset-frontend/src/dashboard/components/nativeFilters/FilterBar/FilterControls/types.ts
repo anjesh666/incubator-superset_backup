@@ -18,25 +18,14 @@
  */
 import React, { RefObject } from 'react';
 import { DataMask, DataMaskStateWithId, Filter } from '@superset-ui/core';
-import { FilterBarOrientation } from 'src/dashboard/types';
 
-export interface BaseFilterProps {
-  orientation?: FilterBarOrientation;
-  overflow?: boolean;
-}
-
-export interface FilterDividerProps extends BaseFilterProps {
-  title: string;
-  description: string;
-}
-
-export interface FilterControlProps extends BaseFilterProps {
+export interface FilterProps {
   dataMaskSelected?: DataMaskStateWithId;
   filter: Filter & {
     dataMask?: DataMask;
   };
   icon?: React.ReactElement;
-  focusedFilterId?: string;
+  directPathToChild?: string[];
   onFilterSelectionChange: (filter: Filter, dataMask: DataMask) => void;
   inView?: boolean;
   showOverflow?: boolean;

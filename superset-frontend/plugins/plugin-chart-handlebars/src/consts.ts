@@ -18,7 +18,10 @@
  */
 import { debounce } from 'lodash';
 import { formatSelectOptions } from '@superset-ui/chart-controls';
-import { SLOW_DEBOUNCE, t } from '@superset-ui/core';
+import { addLocaleData, SLOW_DEBOUNCE, t } from '@superset-ui/core';
+import i18n from './i18n';
+
+addLocaleData(i18n);
 
 export const PAGE_SIZE_OPTIONS = formatSelectOptions<number>([
   [0, t('page_size.all')],

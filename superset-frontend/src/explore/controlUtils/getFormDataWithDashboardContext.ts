@@ -18,52 +18,53 @@
  */
 import isEqual from 'lodash/isEqual';
 import {
-  AdhocFilter,
-  ensureIsArray,
-  EXTRA_FORM_DATA_OVERRIDE_EXTRA_KEYS,
   EXTRA_FORM_DATA_OVERRIDE_REGULAR_MAPPINGS,
+  EXTRA_FORM_DATA_OVERRIDE_EXTRA_KEYS,
   isDefined,
-  isFreeFormAdhocFilter,
-  isSimpleAdhocFilter,
   JsonObject,
-  NO_TIME_RANGE,
-  QueryFormData,
+  ensureIsArray,
   QueryObjectFilterClause,
   SimpleAdhocFilter,
+  QueryFormData,
 } from '@superset-ui/core';
-import { simpleFilterToAdhoc } from 'src/utils/simpleFilterToAdhoc';
+import { NO_TIME_RANGE } from '../constants';
 
-const removeExtraFieldForNewCharts = (
-  filters: AdhocFilter[],
-  isNewChart: boolean,
-) =>
-  filters.map(filter => {
-    if (filter.isExtra) {
-      return { ...filter, isExtra: !isNewChart };
-    }
-    return filter;
-  });
+const simpleFilterToAdhoc = (
+  filterClause: QueryObjectFilterClause,
+  clause = 'where',
+) => {
+  const result = {
+    clause: clause.toUpperCase(),
+    expressionType: 'SIMPLE',
+    operator: filterClause.op,
+    subject: filterClause.col,
+    comparator: 'val' in filterClause ? filterClause.val : undefined,
+  } as SimpleAdhocFilter;
+  if (filterClause.isExtra) {
+    Object.assign(result, {
+      isExtra: true,
+      filterOptionName: `filter_${Math.random()
+        .toString(36)
+        .substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`,
+    });
+  }
+  return result;
+};
 
-const removeAdhocFilterDuplicates = (filters: AdhocFilter[]) => {
+const removeAdhocFilterDuplicates = (filters: SimpleAdhocFilter[]) => {
   const isDuplicate = (
-    adhocFilter: AdhocFilter,
-    existingFilters: AdhocFilter[],
+    adhocFilter: SimpleAdhocFilter,
+    existingFilters: SimpleAdhocFilter[],
   ) =>
     existingFilters.some(
-      (existingFilter: AdhocFilter) =>
-        (isFreeFormAdhocFilter(existingFilter) &&
-          isFreeFormAdhocFilter(adhocFilter) &&
-          existingFilter.clause === adhocFilter.clause &&
-          existingFilter.sqlExpression === adhocFilter.sqlExpression) ||
-        (isSimpleAdhocFilter(existingFilter) &&
-          isSimpleAdhocFilter(adhocFilter) &&
-          existingFilter.operator === adhocFilter.operator &&
-          existingFilter.subject === adhocFilter.subject &&
-          ((!('comparator' in existingFilter) &&
-            !('comparator' in adhocFilter)) ||
-            ('comparator' in existingFilter &&
-              'comparator' in adhocFilter &&
-              isEqual(existingFilter.comparator, adhocFilter.comparator)))),
+      (existingFilter: SimpleAdhocFilter) =>
+        existingFilter.operator === adhocFilter.operator &&
+        existingFilter.subject === adhocFilter.subject &&
+        ((!('comparator' in existingFilter) &&
+          !('comparator' in adhocFilter)) ||
+          ('comparator' in existingFilter &&
+            'comparator' in adhocFilter &&
+            isEqual(existingFilter.comparator, adhocFilter.comparator))),
     );
 
   return filters.reduce((acc, filter) => {
@@ -71,7 +72,7 @@ const removeAdhocFilterDuplicates = (filters: AdhocFilter[]) => {
       acc.push(filter);
     }
     return acc;
-  }, [] as AdhocFilter[]);
+  }, [] as SimpleAdhocFilter[]);
 };
 
 const mergeFilterBoxToFormData = (
@@ -114,6 +115,7 @@ const mergeNativeFiltersToFormData = (
 ) => {
   const nativeFiltersData: JsonObject = {};
   const extraFormData = dashboardFormData.extra_form_data || {};
+
   Object.entries(EXTRA_FORM_DATA_OVERRIDE_REGULAR_MAPPINGS).forEach(
     ([srcKey, targetKey]) => {
       const val = extraFormData[srcKey];
@@ -162,26 +164,6 @@ const mergeNativeFiltersToFormData = (
   return nativeFiltersData;
 };
 
-const applyTimeRangeFilters = (
-  dashboardFormData: JsonObject,
-  adhocFilters: AdhocFilter[],
-) => {
-  const extraFormData = dashboardFormData.extra_form_data || {};
-  if ('time_range' in extraFormData) {
-    return adhocFilters.map((filter: SimpleAdhocFilter) => {
-      if (filter.operator === 'TEMPORAL_RANGE') {
-        return {
-          ...filter,
-          comparator: extraFormData.time_range,
-          isExtra: true,
-        };
-      }
-      return filter;
-    });
-  }
-  return adhocFilters;
-};
-
 export const getFormDataWithDashboardContext = (
   exploreFormData: QueryFormData,
   dashboardContextFormData: JsonObject,
@@ -194,35 +176,16 @@ export const getFormDataWithDashboardContext = (
     exploreFormData,
     dashboardContextFormData,
   );
-  const adhocFilters = [
-    ...Object.keys(exploreFormData),
-    ...Object.keys(filterBoxData),
-    ...Object.keys(nativeFiltersData),
-  ]
-    .filter(key => key.match(/adhoc_filter.*/))
-    .reduce(
-      (acc, key) => ({
-        ...acc,
-        [key]: removeExtraFieldForNewCharts(
-          applyTimeRangeFilters(
-            dashboardContextFormData,
-            removeAdhocFilterDuplicates([
-              ...ensureIsArray(exploreFormData[key]),
-              ...ensureIsArray(filterBoxData[key]),
-              ...ensureIsArray(nativeFiltersData[key]),
-            ]),
-          ),
-          exploreFormData.slice_id === 0,
-        ),
-      }),
-      {},
-    );
-
+  const adhocFilters = removeAdhocFilterDuplicates([
+    ...ensureIsArray(exploreFormData.adhoc_filters),
+    ...ensureIsArray(filterBoxData.adhoc_filters),
+    ...ensureIsArray(nativeFiltersData.adhoc_filters),
+  ]);
   return {
     ...exploreFormData,
     ...dashboardContextFormData,
     ...filterBoxData,
     ...nativeFiltersData,
-    ...adhocFilters,
+    adhoc_filters: adhocFilters,
   };
 };

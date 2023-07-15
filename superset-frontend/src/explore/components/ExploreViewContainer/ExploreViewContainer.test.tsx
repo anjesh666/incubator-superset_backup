@@ -44,14 +44,6 @@ const reduxState = {
     slice: {
       slice_id: 1,
     },
-    metadata: {
-      created_on_humanized: 'a week ago',
-      changed_on_humanized: '2 days ago',
-      owners: ['John Doe'],
-      created_by: 'John Doe',
-      changed_by: 'John Doe',
-      dashboards: [{ id: 1, dashboard_title: 'Test' }],
-    },
   },
   charts: {
     1: {
@@ -75,55 +67,33 @@ const reduxState = {
   },
 };
 
-const KEY = 'aWrs7w29sd';
-const SEARCH = `?form_data_key=${KEY}&dataset_id=1`;
+const key = 'aWrs7w29sd';
 
-jest.mock(
-  'src/explore/components/ExploreChartPanel/useResizeDetectorByObserver',
-  () => ({
-    __esModule: true,
-    default: () => ({ height: 100, width: 100 }),
-  }),
-);
+jest.mock('react-resize-detector', () => ({
+  __esModule: true,
+  useResizeDetector: () => ({ height: 100, width: 100 }),
+}));
 
 jest.mock('lodash/debounce', () => ({
   __esModule: true,
   default: (fuc: Function) => fuc,
 }));
 
-fetchMock.post('glob:*/api/v1/explore/form_data*', { key: KEY });
-fetchMock.put('glob:*/api/v1/explore/form_data*', { key: KEY });
+fetchMock.post('glob:*/api/v1/explore/form_data*', { key });
+fetchMock.put('glob:*/api/v1/explore/form_data*', { key });
 fetchMock.get('glob:*/api/v1/explore/form_data*', {});
-fetchMock.get('glob:*/api/v1/chart/favorite_status*', {
-  result: [{ value: true }],
-});
-fetchMock.get('glob:*/api/v1/chart/*', {
-  result: {},
-});
+fetchMock.get('glob:*/favstar/slice*', { count: 0 });
 
-const defaultPath = '/explore/';
-const renderWithRouter = ({
-  search = '',
-  overridePathname,
-  initialState = reduxState,
-}: {
-  search?: string;
-  overridePathname?: string;
-  initialState?: object;
-} = {}) => {
-  const path = overridePathname ?? defaultPath;
-  Object.defineProperty(window, 'location', {
-    get() {
-      return { pathname: path, search };
-    },
-  });
+const renderWithRouter = (withKey?: boolean) => {
+  const path = '/explore/';
+  const search = withKey ? `?form_data_key=${key}&dataset_id=1` : '';
   return render(
     <MemoryRouter initialEntries={[`${path}${search}`]}>
       <Route path={path}>
         <ExploreViewContainer />
       </Route>
     </MemoryRouter>,
-    { useRedux: true, initialState },
+    { useRedux: true, initialState: reduxState },
   );
 };
 
@@ -151,24 +121,14 @@ test('generates a new form_data param when none is available', async () => {
   replaceState.mockRestore();
 });
 
-test('renders chart in standalone mode', () => {
-  const { queryByTestId } = renderWithRouter({
-    initialState: {
-      ...reduxState,
-      explore: { ...reduxState.explore, standalone: true },
-    },
-  });
-  expect(queryByTestId('standalone-app')).toBeTruthy();
-});
-
 test('generates a different form_data param when one is provided and is mounting', async () => {
   const replaceState = jest.spyOn(window.history, 'replaceState');
-  await waitFor(() => renderWithRouter({ search: SEARCH }));
+  await waitFor(() => renderWithRouter(true));
   expect(replaceState).not.toHaveBeenLastCalledWith(
     0,
     expect.anything(),
     undefined,
-    expect.stringMatching(KEY),
+    expect.stringMatching(key),
   );
   expect(replaceState).toHaveBeenCalledWith(
     expect.anything(),
@@ -184,7 +144,7 @@ test('reuses the same form_data param when updating', async () => {
   });
   const replaceState = jest.spyOn(window.history, 'replaceState');
   const pushState = jest.spyOn(window.history, 'pushState');
-  await waitFor(() => renderWithRouter({ search: SEARCH }));
+  await waitFor(() => renderWithRouter());
   expect(replaceState.mock.calls.length).toBe(1);
   userEvent.click(screen.getByText('Update chart'));
   await waitFor(() => expect(pushState.mock.calls.length).toBe(1));
@@ -192,33 +152,4 @@ test('reuses the same form_data param when updating', async () => {
   replaceState.mockRestore();
   pushState.mockRestore();
   getChartControlPanelRegistry().remove('table');
-});
-
-test('doesnt call replaceState when pathname is not /explore', async () => {
-  getChartMetadataRegistry().registerValue(
-    'table',
-    new ChartMetadata({
-      name: 'fake table',
-      thumbnail: '.png',
-      useLegacyApi: false,
-    }),
-  );
-  const replaceState = jest.spyOn(window.history, 'replaceState');
-  await waitFor(() => renderWithRouter({ overridePathname: '/dashboard' }));
-  expect(replaceState).not.toHaveBeenCalled();
-  replaceState.mockRestore();
-});
-
-test('preserves unknown parameters', async () => {
-  const replaceState = jest.spyOn(window.history, 'replaceState');
-  const unknownParam = 'test=123';
-  await waitFor(() =>
-    renderWithRouter({ search: `${SEARCH}&${unknownParam}` }),
-  );
-  expect(replaceState).toHaveBeenCalledWith(
-    expect.anything(),
-    undefined,
-    expect.stringMatching(unknownParam),
-  );
-  replaceState.mockRestore();
 });

@@ -17,7 +17,7 @@
  * under the License.
  */
 import React from 'react';
-import { styledMount as mount } from 'spec/helpers/theming';
+import { mount } from 'enzyme';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
@@ -73,9 +73,7 @@ describe('DraggableNewComponent', () => {
 
   it('should render the passed label', () => {
     const wrapper = setup();
-    expect(
-      wrapper.find('[data-test="new-component"]').at(0).childAt(0).text(),
-    ).toBe(props.label);
+    expect(wrapper.find('.new-component').text()).toBe(props.label);
   });
 
   it('should add the passed className', () => {

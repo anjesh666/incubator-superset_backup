@@ -237,7 +237,7 @@ function StickyWrap({
   const colWidths = columnWidths?.slice(0, columnCount);
 
   if (colWidths && bodyHeight) {
-    const colgroup = (
+    const bodyColgroup = (
       <colgroup>
         {colWidths.map((w, i) => (
           // eslint-disable-next-line react/no-array-index-key
@@ -245,6 +245,23 @@ function StickyWrap({
         ))}
       </colgroup>
     );
+
+    // header columns do not have vertical scroll bars,
+    // so we add scroll bar size to the last column
+    const headerColgroup =
+      sticky.hasVerticalScroll && scrollBarSize ? (
+        <colgroup>
+          {colWidths.map((x, i) => (
+            // eslint-disable-next-line react/no-array-index-key
+            <col
+              key={i}
+              width={x + (i === colWidths.length - 1 ? scrollBarSize : 0)}
+            />
+          ))}
+        </colgroup>
+      ) : (
+        bodyColgroup
+      );
 
     headerTable = (
       <div
@@ -257,7 +274,7 @@ function StickyWrap({
         {React.cloneElement(
           table,
           mergeStyleProp(table, fixedTableLayout),
-          colgroup,
+          headerColgroup,
           thead,
         )}
         {headerTable}
@@ -275,7 +292,7 @@ function StickyWrap({
         {React.cloneElement(
           table,
           mergeStyleProp(table, fixedTableLayout),
-          colgroup,
+          headerColgroup,
           tfoot,
         )}
         {footerTable}
@@ -303,7 +320,7 @@ function StickyWrap({
         {React.cloneElement(
           table,
           mergeStyleProp(table, fixedTableLayout),
-          colgroup,
+          bodyColgroup,
           tbody,
         )}
       </div>

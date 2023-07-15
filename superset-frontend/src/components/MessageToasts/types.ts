@@ -31,6 +31,4 @@ export interface ToastMeta {
   /** Whether to skip displaying this message if there are another toast
    * with the same message. */
   noDuplicate?: boolean;
-  /** For security reasons, HTML rendering is disabled by default. Use this property to enable it. */
-  allowHtml?: boolean;
 }

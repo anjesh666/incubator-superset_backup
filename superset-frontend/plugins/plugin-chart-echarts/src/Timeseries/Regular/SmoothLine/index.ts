@@ -21,7 +21,8 @@ import {
   Behavior,
   ChartMetadata,
   ChartPlugin,
-  hasGenericChartAxes,
+  FeatureFlag,
+  isFeatureEnabled,
   t,
 } from '@superset-ui/core';
 import {
@@ -54,14 +55,10 @@ export default class EchartsTimeseriesSmoothLineChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('../../EchartsTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t(
               'Smooth-line is a variation of the line chart. Without angles and hard edges, Smooth-line sometimes looks smarter and more professional.',
             )
@@ -75,7 +72,7 @@ export default class EchartsTimeseriesSmoothLineChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        name: hasGenericChartAxes
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t('Smooth Line')
           : t('Time-series Smooth Line'),
         tags: [

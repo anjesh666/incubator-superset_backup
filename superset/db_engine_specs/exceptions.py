@@ -29,7 +29,7 @@ class SupersetDBAPIDatabaseError(SupersetDBAPIError):
     pass
 
 
-class SupersetDBAPIConnectionError(SupersetDBAPIError):
+class SupersetDBAPIDisconnectionError(SupersetDBAPIError):
     pass
 
 

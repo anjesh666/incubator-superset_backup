@@ -16,12 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import {
-  BYTES_PER_CHAR,
-  KB_STORAGE,
-  LOCALSTORAGE_MAX_QUERY_AGE_MS,
-  LOCALSTORAGE_MAX_QUERY_RESULTS_KB,
-} from '../constants';
+import { LOCALSTORAGE_MAX_QUERY_AGE_MS } from '../constants';
 
 const PERSISTENT_QUERY_EDITOR_KEYS = new Set([
   'remoteId',
@@ -37,25 +32,17 @@ const PERSISTENT_QUERY_EDITOR_KEYS = new Set([
   'southPercent',
   'sql',
   'templateParams',
-  'name',
+  'title',
   'hideLeftBar',
 ]);
 
-function shouldEmptyQueryResults(query) {
-  const { startDttm, results } = query;
-  return (
-    Date.now() - startDttm > LOCALSTORAGE_MAX_QUERY_AGE_MS ||
-    ((JSON.stringify(results)?.length || 0) * BYTES_PER_CHAR) / KB_STORAGE >
-      LOCALSTORAGE_MAX_QUERY_RESULTS_KB
-  );
-}
-
 export function emptyQueryResults(queries) {
   return Object.keys(queries).reduce((accu, key) => {
-    const { results } = queries[key];
+    const { startDttm, results } = queries[key];
     const query = {
       ...queries[key],
-      results: shouldEmptyQueryResults(queries[key]) ? {} : results,
+      results:
+        Date.now() - startDttm > LOCALSTORAGE_MAX_QUERY_AGE_MS ? {} : results,
     };
 
     const updatedQueries = {

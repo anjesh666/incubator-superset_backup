@@ -16,22 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { FeatureFlag, FeatureFlagMap } from '@superset-ui/core';
+import { FeatureFlagMap, FeatureFlag } from '@superset-ui/core';
 
-export function initFeatureFlags(featureFlags?: FeatureFlagMap) {
+export { FeatureFlag } from '@superset-ui/core';
+export type { FeatureFlagMap } from '@superset-ui/core';
+
+export function initFeatureFlags(featureFlags: FeatureFlagMap) {
   if (!window.featureFlags) {
     window.featureFlags = featureFlags || {};
   }
 }
 
 export function isFeatureEnabled(feature: FeatureFlag) {
-  try {
-    return !!window.featureFlags[feature];
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`Failed to query feature flag ${feature} (see error below)`);
-    // eslint-disable-next-line no-console
-    console.error(error);
-    return false;
-  }
+  return window && window.featureFlags && !!window.featureFlags[feature];
 }

@@ -17,27 +17,25 @@
  * under the License.
  */
 import {
+  DTTM_ALIAS,
   extractTimegrain,
   getNumberFormatter,
   NumberFormats,
+  QueryFormData,
   GenericDataType,
   getMetricLabel,
   t,
   smartDateVerboseFormatter,
   NumberFormatter,
   TimeFormatter,
-  getXAxisLabel,
 } from '@superset-ui/core';
 import { EChartsCoreOption, graphic } from 'echarts';
 import {
-  BigNumberVizProps,
   BigNumberDatum,
   BigNumberWithTrendlineChartProps,
   TimeSeriesDatum,
 } from '../types';
 import { getDateFormatter, parseMetricValue } from '../utils';
-import { getDefaultTooltip } from '../../utils/tooltip';
-import { Refs } from '../../types';
 
 const defaultNumberFormatter = getNumberFormatter();
 export function renderTooltipFactory(
@@ -63,17 +61,9 @@ const formatPercentChange = getNumberFormatter(
 
 export default function transformProps(
   chartProps: BigNumberWithTrendlineChartProps,
-): BigNumberVizProps {
-  const {
-    width,
-    height,
-    queriesData,
-    formData,
-    rawFormData,
-    theme,
-    hooks,
-    inContextMenu,
-  } = chartProps;
+) {
+  const { width, height, queriesData, formData, rawFormData, theme } =
+    chartProps;
   const {
     colorPicker,
     compareLag: compareLag_,
@@ -90,7 +80,7 @@ export default function transformProps(
     yAxisFormat,
     timeRangeFixed,
   } = formData;
-  const granularity = extractTimegrain(rawFormData);
+  const granularity = extractTimegrain(rawFormData as QueryFormData);
   const {
     data = [],
     colnames = [],
@@ -98,7 +88,6 @@ export default function transformProps(
     from_dttm: fromDatetime,
     to_dttm: toDatetime,
   } = queriesData[0];
-  const refs: Refs = {};
   const metricName = getMetricLabel(metric);
   const compareLag = Number(compareLag_) || 0;
   let formattedSubheader = subheader;
@@ -106,11 +95,10 @@ export default function transformProps(
   const { r, g, b } = colorPicker;
   const mainColor = `rgb(${r}, ${g}, ${b})`;
 
-  const xAxisLabel = getXAxisLabel(rawFormData) as string;
-  let trendLineData: TimeSeriesDatum[] | undefined;
+  let trendLineData;
   let percentChange = 0;
   let bigNumber = data.length === 0 ? null : data[0][metricName];
-  let timestamp = data.length === 0 ? null : data[0][xAxisLabel];
+  let timestamp = data.length === 0 ? null : data[0][DTTM_ALIAS];
   let bigNumberFallback;
 
   const metricColtypeIndex = colnames.findIndex(name => name === metricName);
@@ -119,7 +107,7 @@ export default function transformProps(
 
   if (data.length > 0) {
     const sortedData = (data as BigNumberDatum[])
-      .map(d => [d[xAxisLabel], parseMetricValue(d[metricName])])
+      .map(d => [d[DTTM_ALIAS], parseMetricValue(d[metricName])])
       // sort in time descending order
       .sort((a, b) => (a[0] !== null && b[0] !== null ? b[0] - a[0] : 0));
 
@@ -137,10 +125,8 @@ export default function transformProps(
       if (compareIndex < sortedData.length) {
         const compareValue = sortedData[compareIndex][1];
         // compare values must both be non-nulls
-        if (bigNumber !== null && compareValue !== null) {
-          percentChange = compareValue
-            ? (bigNumber - compareValue) / Math.abs(compareValue)
-            : 0;
+        if (bigNumber !== null && compareValue !== null && compareValue !== 0) {
+          percentChange = (bigNumber - compareValue) / Math.abs(compareValue);
           formattedSubheader = `${formatPercentChange(
             percentChange,
           )} ${compareSuffix}`;
@@ -148,7 +134,6 @@ export default function transformProps(
       }
     }
     sortedData.reverse();
-    // @ts-ignore
     trendLineData = showTrendLine ? sortedData : undefined;
   }
 
@@ -160,7 +145,7 @@ export default function transformProps(
   }
 
   let metricEntry;
-  if (chartProps.datasource?.metrics) {
+  if (chartProps.datasource && chartProps.datasource.metrics) {
     metricEntry = chartProps.datasource.metrics.find(
       metricEntry => metricEntry.metric_name === metric,
     );
@@ -200,7 +185,6 @@ export default function transformProps(
             type: 'line',
             smooth: true,
             symbol: 'circle',
-            symbolSize: 10,
             showSymbol: false,
             color: mainColor,
             areaStyle: {
@@ -234,9 +218,10 @@ export default function transformProps(
           bottom: 0,
         },
         tooltip: {
-          ...getDefaultTooltip(refs),
-          show: !inContextMenu,
+          appendToBody: true,
+          show: true,
           trigger: 'axis',
+          confine: true,
           formatter: renderTooltipFactory(formatTime, headerFormatter),
         },
         aria: {
@@ -247,19 +232,14 @@ export default function transformProps(
         },
       }
     : {};
-
-  const { onContextMenu } = hooks;
-
   return {
     width,
     height,
     bigNumber,
-    // @ts-ignore
     bigNumberFallback,
     className,
     headerFormatter,
     formatTime,
-    formData,
     headerFontSize,
     subheaderFontSize,
     mainColor,
@@ -270,8 +250,5 @@ export default function transformProps(
     timestamp,
     trendLineData,
     echartOptions,
-    onContextMenu,
-    xValueFormatter: formatTime,
-    refs,
   };
 }

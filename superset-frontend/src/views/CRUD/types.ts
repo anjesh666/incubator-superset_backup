@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { QueryState } from '@superset-ui/core';
 import { User } from 'src/types/bootstrapTypes';
 import Database from 'src/types/Database';
 import Owner from 'src/types/Owner';
@@ -25,16 +24,13 @@ export type FavoriteStatus = {
   [id: number]: boolean;
 };
 
-export enum TableTab {
-  Favorite = 'Favorite',
-  Mine = 'Mine',
-  Other = 'Other',
-  Viewed = 'Viewed',
-  Created = 'Created',
-  Edited = 'Edited',
+export enum TableTabTypes {
+  FAVORITE = 'Favorite',
+  MINE = 'Mine',
+  EXAMPLES = 'Examples',
 }
 
-export type Filter = {
+export type Filters = {
   col: string;
   opr: string;
   value: string | number;
@@ -43,12 +39,12 @@ export type Filter = {
 export interface DashboardTableProps {
   addDangerToast: (message: string) => void;
   addSuccessToast: (message: string) => void;
+  search: string;
   user?: User;
   mine: Array<Dashboard>;
   showThumbnails?: boolean;
-  otherTabData: Array<Dashboard>;
-  otherTabFilters: Filter[];
-  otherTabTitle: string;
+  featureFlag?: boolean;
+  examples: Array<Dashboard>;
 }
 
 export interface Dashboard {
@@ -95,7 +91,14 @@ export interface QueryObject {
   sql: string;
   executed_sql: string | null;
   sql_tables?: { catalog?: string; schema: string; table: string }[];
-  status: QueryState;
+  status:
+    | 'success'
+    | 'failed'
+    | 'stopped'
+    | 'running'
+    | 'timed_out'
+    | 'scheduled'
+    | 'pending';
   tab_name: string;
   user: {
     first_name: string;
@@ -117,7 +120,7 @@ export enum QueryObjectColumns {
   database_name = 'database.database_name',
   schema = 'schema',
   sql = 'sql',
-  executed_sql = 'executed_sql',
+  executed_sql = 'exceuted_sql',
   sql_tables = 'sql_tables',
   status = 'status',
   tab_name = 'tab_name',
@@ -136,13 +139,6 @@ export type ImportResourceName =
   | 'database'
   | 'dataset'
   | 'saved_query';
-
-export interface Tag {
-  changed_on_delta_humanized: string;
-  name: string;
-  id: number;
-  created_by: object;
-}
 
 export type DatabaseObject = Partial<Database> &
   Pick<Database, 'sqlalchemy_uri'>;

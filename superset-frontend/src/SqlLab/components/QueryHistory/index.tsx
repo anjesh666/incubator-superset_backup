@@ -23,6 +23,13 @@ import QueryTable from 'src/SqlLab/components/QueryTable';
 
 interface QueryHistoryProps {
   queries: QueryResponse[];
+  actions: {
+    queryEditorSetAndSaveSql: Function;
+    cloneQueryToNewTab: Function;
+    fetchQueryResults: Function;
+    clearQueryResults: Function;
+    removeQuery: Function;
+  };
   displayLimit: number;
   latestQueryId: string | undefined;
 }
@@ -40,6 +47,7 @@ const StyledEmptyStateWrapper = styled.div`
 
 const QueryHistory = ({
   queries,
+  actions,
   displayLimit,
   latestQueryId,
 }: QueryHistoryProps) =>
@@ -56,6 +64,7 @@ const QueryHistory = ({
         'actions',
       ]}
       queries={queries}
+      actions={actions}
       displayLimit={displayLimit}
       latestQueryId={latestQueryId}
     />

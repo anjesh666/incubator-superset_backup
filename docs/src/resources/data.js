@@ -49,11 +49,6 @@ export const Databases = [
     imgName: 'dremio.png',
   },
   {
-    title: 'Databricks',
-    href: 'https://www.databricks.com',
-    imgName: 'databricks.png',
-  },
-  {
     title: 'Exasol',
     href: 'https://www.exasol.com/en/',
     imgName: 'exasol.png',
@@ -144,18 +139,8 @@ export const Databases = [
     imgName: 'teradata.png'
   },
   {
-    title: 'TimescaleDB',
-    href: "www.timescale.com",
-    imgName: 'timescale.png'
-  },
-  {
     title: 'YugabyteDB',
     href: "www.yugabyte.com",
     imgName: 'yugabyte.png'
-  },
-  {
-    title: 'StarRocks',
-    href: "www.starrocks.io",
-    imgName: 'starrocks.png'
   }
 ];

@@ -36,7 +36,6 @@ interface AdhocFilterPopoverTriggerProps {
   visible?: boolean;
   togglePopover?: (visible: boolean) => void;
   closePopover?: () => void;
-  requireSave?: boolean;
 }
 
 interface AdhocFilterPopoverTriggerState {
@@ -97,7 +96,6 @@ class AdhocFilterPopoverTrigger extends React.PureComponent<
           sections={this.props.sections}
           operators={this.props.operators}
           onChange={this.props.onFilterEdit}
-          requireSave={this.props.requireSave}
         />
       </ExplorePopoverContent>
     );

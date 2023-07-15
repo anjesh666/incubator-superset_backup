@@ -21,7 +21,6 @@ import {
   isUnaryAdhocFilter,
   isBinaryAdhocFilter,
   isSetAdhocFilter,
-  isFreeFormAdhocFilter,
 } from '@superset-ui/core';
 
 describe('Filter type guards', () => {
@@ -92,28 +91,6 @@ describe('Filter type guards', () => {
           clause: 'WHERE',
           subject: 'tea',
           operator: 'IS NOT NULL',
-        }),
-      ).toEqual(false);
-    });
-  });
-  describe('isFreeFormAdhocFilter', () => {
-    it('should return true when it is the correct type', () => {
-      expect(
-        isFreeFormAdhocFilter({
-          expressionType: 'SQL',
-          clause: 'WHERE',
-          sqlExpression: 'gender = "boy"',
-        }),
-      ).toEqual(true);
-    });
-    it('should return false otherwise', () => {
-      expect(
-        isFreeFormAdhocFilter({
-          expressionType: 'SIMPLE',
-          clause: 'WHERE',
-          subject: 'tea',
-          operator: '==',
-          comparator: 'matcha',
         }),
       ).toEqual(false);
     });

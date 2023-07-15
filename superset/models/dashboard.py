@@ -18,13 +18,11 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from collections import defaultdict
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Set, Tuple, Type, Union
 
 import sqlalchemy as sqla
-from flask import current_app
 from flask_appbuilder import Model
 from flask_appbuilder.models.decorators import renders
 from flask_appbuilder.security.sqla.models import User
@@ -55,13 +53,14 @@ from superset.extensions import cache_manager
 from superset.models.filter_set import FilterSet
 from superset.models.helpers import AuditMixinNullable, ImportExportMixin
 from superset.models.slice import Slice
+from superset.models.tags import DashboardUpdater
 from superset.models.user_attributes import UserAttribute
 from superset.tasks.thumbnails import cache_dashboard_thumbnail
-from superset.tasks.utils import get_current_user
-from superset.thumbnails.digest import get_dashboard_digest
 from superset.utils import core as utils
 from superset.utils.core import get_user_id
 from superset.utils.decorators import debounce
+from superset.utils.hashing import md5_sha_from_str
+from superset.utils.urls import get_url_path
 
 metadata = Model.metadata  # pylint: disable=no-member
 config = app.config
@@ -150,13 +149,6 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
         Slice, secondary=dashboard_slices, backref="dashboards"
     )
     owners = relationship(security_manager.user_model, secondary=dashboard_user)
-    tags = relationship(
-        "Tag",
-        secondary="tagged_object",
-        primaryjoin="and_(Dashboard.id == TaggedObject.object_id)",
-        secondaryjoin="and_(TaggedObject.tag_id == Tag.id, "
-        "TaggedObject.object_type == 'dashboard')",
-    )
     published = Column(Boolean, default=False)
     is_managed_externally = Column(Boolean, nullable=False, default=False)
     external_url = Column(Text, nullable=True)
@@ -185,11 +177,6 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
     @property
     def url(self) -> str:
         return f"/superset/dashboard/{self.slug or self.id}/"
-
-    @staticmethod
-    def get_url(id_: int, slug: Optional[str] = None) -> str:
-        # To be able to generate URL's without instanciating a Dashboard object
-        return f"/superset/dashboard/{slug or id_}/"
 
     @property
     def datasources(self) -> Set[BaseDatasource]:
@@ -238,9 +225,8 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
     @property
     def sqla_metadata(self) -> None:
         # pylint: disable=no-member
-        with self.get_sqla_engine_with_context() as engine:
-            meta = MetaData(bind=engine)
-            meta.reflect()
+        meta = MetaData(bind=self.get_sqla_engine())
+        meta.reflect()
 
     @property
     def status(self) -> utils.DashboardStatus:
@@ -255,7 +241,11 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
 
     @property
     def digest(self) -> str:
-        return get_dashboard_digest(self)
+        """
+        Returns a MD5 HEX digest that makes this dashboard unique
+        """
+        unique_string = f"{self.position_json}.{self.css}.{self.json_metadata}"
+        return md5_sha_from_str(unique_string)
 
     @property
     def thumbnail_url(self) -> str:
@@ -273,10 +263,7 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
 
     @property
     def changed_by_url(self) -> str:
-        if (
-            not self.changed_by
-            or not current_app.config["ENABLE_BROAD_ACTIVITY_ACCESS"]
-        ):
+        if not self.changed_by:
             return ""
         return f"/superset/profile/{self.changed_by.username}"
 
@@ -327,8 +314,8 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
 
         return result
 
-    @property
-    def params(self) -> str:
+    @property  # type: ignore
+    def params(self) -> str:  # type: ignore
         return self.json_metadata
 
     @params.setter
@@ -342,11 +329,8 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
         return {}
 
     def update_thumbnail(self) -> None:
-        cache_dashboard_thumbnail.delay(
-            current_user=get_current_user(),
-            dashboard_id=self.id,
-            force=True,
-        )
+        url = get_url_path("Superset.dashboard", dashboard_id_or_slug=self.id)
+        cache_dashboard_thumbnail.delay(url, self.digest, force=True)
 
     @debounce(0.1)
     def clear_cache(self) -> None:
@@ -440,6 +424,11 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
                 remote_id=eager_datasource.id,
                 database_name=eager_datasource.database.name,
             )
+            datasource_class = copied_datasource.__class__
+            for field_name in datasource_class.export_children:
+                field_val = getattr(eager_datasource, field_name).copy()
+                # set children without creating ORM relations
+                copied_datasource.__dict__[field_name] = field_val
             eager_datasources.append(copied_datasource)
 
         return json.dumps(
@@ -449,36 +438,25 @@ class Dashboard(Model, AuditMixinNullable, ImportExportMixin):
         )
 
     @classmethod
-    def get(cls, id_or_slug: Union[str, int]) -> Dashboard:
-        qry = db.session.query(Dashboard).filter(id_or_slug_filter(id_or_slug))
+    def get(cls, id_or_slug: str) -> Dashboard:
+        session = db.session()
+        qry = session.query(Dashboard).filter(id_or_slug_filter(id_or_slug))
         return qry.one_or_none()
 
 
-def is_uuid(value: Union[str, int]) -> bool:
-    try:
-        uuid.UUID(str(value))
-        return True
-    except ValueError:
-        return False
-
-
-def is_int(value: Union[str, int]) -> bool:
-    try:
-        int(value)
-        return True
-    except ValueError:
-        return False
-
-
-def id_or_slug_filter(id_or_slug: Union[int, str]) -> BinaryExpression:
-    if is_int(id_or_slug):
+def id_or_slug_filter(id_or_slug: str) -> BinaryExpression:
+    if id_or_slug.isdigit():
         return Dashboard.id == int(id_or_slug)
-    if is_uuid(id_or_slug):
-        return Dashboard.uuid == uuid.UUID(str(id_or_slug))
     return Dashboard.slug == id_or_slug
 
 
 OnDashboardChange = Callable[[Mapper, Connection, Dashboard], Any]
+
+# events for updating tags
+if is_feature_enabled("TAGGING_SYSTEM"):
+    sqla.event.listen(Dashboard, "after_insert", DashboardUpdater.after_insert)
+    sqla.event.listen(Dashboard, "after_update", DashboardUpdater.after_update)
+    sqla.event.listen(Dashboard, "after_delete", DashboardUpdater.after_delete)
 
 if is_feature_enabled("THUMBNAILS_SQLA_LISTENERS"):
     update_thumbnail: OnDashboardChange = lambda _, __, dash: dash.update_thumbnail()

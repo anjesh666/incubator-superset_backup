@@ -17,14 +17,9 @@
  * under the License.
  */
 import React, { ReactNode } from 'react';
-import { Metric, t } from '@superset-ui/core';
+import { Datasource, Metric } from '@superset-ui/core';
 import AdhocMetricEditPopoverTitle from 'src/explore/components/controls/MetricControl/AdhocMetricEditPopoverTitle';
 import { ExplorePopoverContent } from 'src/explore/components/ExploreContentPopover';
-import {
-  ISaveableDatasource,
-  SaveDatasetModal,
-} from 'src/SqlLab/components/SaveDatasetModal';
-import { Datasource } from 'src/explore/types';
 import AdhocMetricEditPopover, {
   SAVED_TAB_KEY,
 } from './AdhocMetricEditPopover';
@@ -38,13 +33,12 @@ export type AdhocMetricPopoverTriggerProps = {
   columns: { column_name: string; type: string }[];
   savedMetricsOptions: savedMetricType[];
   savedMetric: savedMetricType;
-  datasource: Datasource & ISaveableDatasource;
+  datasource?: Datasource;
   children: ReactNode;
   isControlledComponent?: boolean;
   visible?: boolean;
   togglePopover?: (visible: boolean) => void;
   closePopover?: () => void;
-  isNew?: boolean;
 };
 
 export type AdhocMetricPopoverTriggerState = {
@@ -54,7 +48,6 @@ export type AdhocMetricPopoverTriggerState = {
   currentLabel: string;
   labelModified: boolean;
   isTitleEditDisabled: boolean;
-  showSaveDatasetModal: boolean;
 };
 
 class AdhocMetricPopoverTrigger extends React.PureComponent<
@@ -70,7 +63,6 @@ class AdhocMetricPopoverTrigger extends React.PureComponent<
     this.getCurrentTab = this.getCurrentTab.bind(this);
     this.getCurrentLabel = this.getCurrentLabel.bind(this);
     this.onChange = this.onChange.bind(this);
-    this.handleDatasetModal = this.handleDatasetModal.bind(this);
 
     this.state = {
       adhocMetric: props.adhocMetric,
@@ -82,7 +74,6 @@ class AdhocMetricPopoverTrigger extends React.PureComponent<
       currentLabel: '',
       labelModified: false,
       isTitleEditDisabled: false,
-      showSaveDatasetModal: false,
     };
   }
 
@@ -126,10 +117,6 @@ class AdhocMetricPopoverTrigger extends React.PureComponent<
 
   onPopoverResize() {
     this.forceUpdate();
-  }
-
-  handleDatasetModal(showModal: boolean) {
-    this.setState({ showSaveDatasetModal: showModal });
   }
 
   closePopover() {
@@ -218,17 +205,11 @@ class AdhocMetricPopoverTrigger extends React.PureComponent<
           savedMetricsOptions={savedMetricsOptions}
           savedMetric={savedMetric}
           datasource={datasource}
-          handleDatasetModal={this.handleDatasetModal}
           onResize={this.onPopoverResize}
           onClose={closePopover}
           onChange={this.onChange}
           getCurrentTab={this.getCurrentTab}
           getCurrentLabel={this.getCurrentLabel}
-          isNewMetric={this.props.isNew}
-          isLabelModified={
-            this.state.labelModified &&
-            adhocMetricLabel !== this.state.title.label
-          }
         />
       </ExplorePopoverContent>
     );
@@ -242,32 +223,18 @@ class AdhocMetricPopoverTrigger extends React.PureComponent<
     );
 
     return (
-      <>
-        {this.state.showSaveDatasetModal && (
-          <SaveDatasetModal
-            visible={this.state.showSaveDatasetModal}
-            onHide={() => this.handleDatasetModal(false)}
-            buttonTextOnSave={t('Save')}
-            buttonTextOnOverwrite={t('Overwrite')}
-            modalDescription={t(
-              'Save this query as a virtual dataset to continue exploring',
-            )}
-            datasource={datasource}
-          />
-        )}
-        <ControlPopover
-          placement="right"
-          trigger="click"
-          content={overlayContent}
-          defaultVisible={visible}
-          visible={visible}
-          onVisibleChange={togglePopover}
-          title={popoverTitle}
-          destroyTooltipOnHide
-        >
-          {this.props.children}
-        </ControlPopover>
-      </>
+      <ControlPopover
+        placement="right"
+        trigger="click"
+        content={overlayContent}
+        defaultVisible={visible}
+        visible={visible}
+        onVisibleChange={togglePopover}
+        title={popoverTitle}
+        destroyTooltipOnHide
+      >
+        {this.props.children}
+      </ControlPopover>
     );
   }
 }

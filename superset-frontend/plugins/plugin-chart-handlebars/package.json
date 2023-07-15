@@ -11,8 +11,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/superset.git",
-    "directory": "superset-frontend/plugins/plugin-chart-handlebars"
+    "url": "git+https://github.com/apache-superset/superset-ui.git"
   },
   "keywords": [
     "superset"
@@ -20,9 +19,9 @@
   "author": "Superset",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/apache/superset/issues"
+    "url": "https://github.com/apache-superset/superset-ui/issues"
   },
-  "homepage": "https://github.com/apache/superset/tree/master/superset-frontend/plugins/plugin-chart-handlebars#readme",
+  "homepage": "https://github.com/apache-superset/superset-ui#readme",
   "publishConfig": {
     "access": "public"
   },
@@ -37,7 +36,7 @@
     "lodash": "^4.17.11",
     "moment": "^2.26.0",
     "react": "^16.13.1",
-    "react-ace": "^10.1.0",
+    "react-ace": "^9.4.4",
     "react-dom": "^16.13.1"
   },
   "devDependencies": {

@@ -19,14 +19,6 @@
 import { t } from '@superset-ui/core';
 import getToastsFromPyFlashMessages from 'src/components/MessageToasts/getToastsFromPyFlashMessages';
 
-export function dedupeTabHistory(tabHistory) {
-  return tabHistory.reduce(
-    (result, tabId) =>
-      result.slice(-1)[0] === tabId ? result : result.concat(tabId),
-    [],
-  );
-}
-
 export default function getInitialState({
   defaultDbId,
   common,
@@ -45,26 +37,31 @@ export default function getInitialState({
    * To allow for a transparent migration, the initial state is a combination
    * of the backend state (if any) with the browser state (if any).
    */
-  let queryEditors = {};
+  const queryEditors = [];
   const defaultQueryEditor = {
     id: null,
     loaded: true,
-    name: t('Untitled query'),
+    title: t('Untitled query'),
     sql: 'SELECT *\nFROM\nWHERE',
     selectedText: null,
     latestQueryId: null,
     autorun: false,
     templateParams: null,
     dbId: defaultDbId,
+    functionNames: [],
     queryLimit: common.conf.DEFAULT_SQLLAB_LIMIT,
     validationResult: {
       id: null,
       errors: [],
       completed: false,
     },
+    queryCostEstimate: {
+      cost: null,
+      completed: false,
+      error: null,
+    },
     hideLeftBar: false,
   };
-  let unsavedQueryEditor = {};
 
   /**
    * Load state from the backend. This will be empty if the feature flag
@@ -76,7 +73,7 @@ export default function getInitialState({
       queryEditor = {
         id: id.toString(),
         loaded: true,
-        name: activeTab.label,
+        title: activeTab.label,
         sql: activeTab.sql || undefined,
         selectedText: undefined,
         latestQueryId: activeTab.latest_query
@@ -86,6 +83,7 @@ export default function getInitialState({
         autorun: activeTab.autorun,
         templateParams: activeTab.template_params || undefined,
         dbId: activeTab.database_id,
+        functionNames: [],
         schema: activeTab.schema,
         queryLimit: activeTab.query_limit,
         validationResult: {
@@ -101,17 +99,14 @@ export default function getInitialState({
         ...defaultQueryEditor,
         id: id.toString(),
         loaded: false,
-        name: label,
+        title: label,
       };
     }
-    queryEditors = {
-      ...queryEditors,
-      [queryEditor.id]: queryEditor,
-    };
+    queryEditors.push(queryEditor);
   });
 
   const tabHistory = activeTab ? [activeTab.id.toString()] : [];
-  let tables = {};
+  const tables = [];
   if (activeTab) {
     activeTab.table_schemas
       .filter(tableSchema => tableSchema.description !== null)
@@ -144,10 +139,7 @@ export default function getInitialState({
           partitions,
           metadata,
         };
-        tables = {
-          ...tables,
-          [table.id]: table,
-        };
+        tables.push(table);
       });
   }
 
@@ -168,31 +160,17 @@ export default function getInitialState({
       // migration was successful
       localStorage.removeItem('redux');
     } else {
-      unsavedQueryEditor = sqlLab.unsavedQueryEditor || {};
       // add query editors and tables to state with a special flag so they can
       // be migrated if the `SQLLAB_BACKEND_PERSISTENCE` feature flag is on
-      sqlLab.queryEditors.forEach(qe => {
-        queryEditors = {
-          ...queryEditors,
-          [qe.id]: {
-            ...queryEditors[qe.id],
-            ...qe,
-            name: qe.title || qe.name,
-            ...(unsavedQueryEditor.id === qe.id && unsavedQueryEditor),
-            inLocalStorage: true,
-            loaded: true,
-          },
-        };
-      });
-      tables = sqlLab.tables.reduce(
-        (merged, table) => ({
-          ...merged,
-          [table.id]: {
-            ...tables[table.id],
-            ...table,
-          },
+      sqlLab.queryEditors.forEach(qe =>
+        queryEditors.push({
+          ...qe,
+          inLocalStorage: true,
+          loaded: true,
         }),
-        tables,
+      );
+      sqlLab.tables.forEach(table =>
+        tables.push({ ...table, inLocalStorage: true }),
       );
       Object.values(sqlLab.queries).forEach(query => {
         queries[query.id] = { ...query, inLocalStorage: true };
@@ -208,13 +186,11 @@ export default function getInitialState({
       databases,
       offline: false,
       queries,
-      queryEditors: Object.values(queryEditors),
-      tabHistory: dedupeTabHistory(tabHistory),
-      tables: Object.values(tables),
+      queryEditors,
+      tabHistory,
+      tables,
       queriesLastUpdate: Date.now(),
       user,
-      unsavedQueryEditor,
-      queryCostEstimates: {},
     },
     requestedQuery,
     messageToasts: getToastsFromPyFlashMessages(

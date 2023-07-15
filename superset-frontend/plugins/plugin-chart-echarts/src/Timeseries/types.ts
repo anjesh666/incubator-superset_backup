@@ -16,25 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { OptionName } from 'echarts/types/src/util/types';
 import {
   AnnotationLayer,
-  AxisType,
-  ContributionType,
+  ChartDataResponseResult,
+  ChartProps,
   QueryFormColumn,
   QueryFormData,
-  QueryFormMetric,
-  TimeFormatter,
   TimeGranularity,
+  ContributionType,
 } from '@superset-ui/core';
 import {
-  BaseChartProps,
-  BaseTransformedProps,
-  ContextMenuTransformedProps,
-  CrossFilterTransformedProps,
-  LegendFormData,
+  EchartsLegendFormData,
+  EChartTransformedProps,
+  EchartsTitleFormData,
   StackType,
-  TitleFormData,
 } from '../types';
 
 export enum OrientationType {
@@ -66,14 +61,12 @@ export type EchartsTimeseriesFormData = QueryFormData & {
   logAxis: boolean;
   markerEnabled: boolean;
   markerSize: number;
-  metrics: QueryFormMetric[];
   minorSplitLine: boolean;
   opacity: number;
   orderDesc: boolean;
   rowLimit: number;
   seriesType: EchartsTimeseriesSeriesType;
   stack: StackType;
-  timeCompare?: string[];
   tooltipTimeFormat?: string;
   truncateYAxis: boolean;
   yAxisFormat?: string;
@@ -83,28 +76,21 @@ export type EchartsTimeseriesFormData = QueryFormData & {
   zoomable: boolean;
   richTooltip: boolean;
   xAxisLabelRotation: number;
+  emitFilter: boolean;
   groupby: QueryFormColumn[];
   showValue: boolean;
   onlyTotal: boolean;
   showExtraControls: boolean;
   percentageThreshold: number;
   orientation?: OrientationType;
-} & LegendFormData &
-  TitleFormData;
+} & EchartsLegendFormData &
+  EchartsTitleFormData;
 
 export interface EchartsTimeseriesChartProps
-  extends BaseChartProps<EchartsTimeseriesFormData> {
+  extends ChartProps<EchartsTimeseriesFormData> {
   formData: EchartsTimeseriesFormData;
+  queriesData: ChartDataResponseResult[];
 }
 
 export type TimeseriesChartTransformedProps =
-  BaseTransformedProps<EchartsTimeseriesFormData> &
-    ContextMenuTransformedProps &
-    CrossFilterTransformedProps & {
-      legendData?: OptionName[];
-      xValueFormatter: TimeFormatter | StringConstructor;
-      xAxis: {
-        label: string;
-        type: AxisType;
-      };
-    };
+  EChartTransformedProps<EchartsTimeseriesFormData>;

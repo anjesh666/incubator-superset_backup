@@ -19,15 +19,7 @@
 import React, { useEffect, useState } from 'react';
 import FormItem from 'src/components/Form/FormItem';
 import { Select } from 'src/components';
-import {
-  FeatureFlag,
-  hasGenericChartAxes,
-  isDefined,
-  styled,
-  SupersetClient,
-  SupersetTheme,
-  t,
-} from '@superset-ui/core';
+import { t, SupersetClient, SupersetTheme, styled } from '@superset-ui/core';
 import {
   Operators,
   OPERATORS_OPTIONS,
@@ -39,20 +31,15 @@ import {
   OPERATOR_ENUM_TO_OPERATOR_TYPE,
 } from 'src/explore/constants';
 import FilterDefinitionOption from 'src/explore/components/controls/MetricControl/FilterDefinitionOption';
-import AdhocFilter from 'src/explore/components/controls/FilterControl/AdhocFilter';
+import AdhocFilter, {
+  EXPRESSION_TYPES,
+  CLAUSES,
+} from 'src/explore/components/controls/FilterControl/AdhocFilter';
 import { Tooltip } from 'src/components/Tooltip';
 import { Input } from 'src/components/Input';
 import { optionLabel } from 'src/utils/common';
-import { isFeatureEnabled } from 'src/featureFlags';
-import {
-  ColumnMeta,
-  Dataset,
-  isTemporalColumn,
-} from '@superset-ui/chart-controls';
+import { FeatureFlag, isFeatureEnabled } from 'src/featureFlags';
 import useAdvancedDataTypes from './useAdvancedDataTypes';
-import { useDatePickerInAdhocFilter } from '../utils';
-import { useDefaultTimeFilter } from '../../DateFilterControl/utils';
-import { CLAUSES, EXPRESSION_TYPES } from '../types';
 
 const StyledInput = styled(Input)`
   margin-bottom: ${({ theme }) => theme.gridUnit * 4}px;
@@ -74,9 +61,20 @@ const SelectWithLabel = styled(Select)<{ labelText: string }>`
   }
 `;
 
+export interface SimpleColumnType {
+  id: number;
+  column_name: string;
+  expression?: string;
+  type: string;
+  optionName?: string;
+  filterBy?: string;
+  value?: string;
+  advanced_data_type?: string;
+}
+
 export interface SimpleExpressionType {
   expressionType: keyof typeof EXPRESSION_TYPES;
-  column: ColumnMeta;
+  column: SimpleColumnType;
   aggregate: keyof typeof AGGREGATES;
   label: string;
 }
@@ -91,7 +89,7 @@ export interface MetricColumnType {
 }
 
 export type ColumnType =
-  | ColumnMeta
+  | SimpleColumnType
   | SimpleExpressionType
   | SQLExpressionType
   | MetricColumnType;
@@ -100,7 +98,12 @@ export interface Props {
   adhocFilter: AdhocFilter;
   onChange: (filter: AdhocFilter) => void;
   options: ColumnType[];
-  datasource: Dataset;
+  datasource: {
+    id: string;
+    columns: SimpleColumnType[];
+    type: string;
+    filter_select: boolean;
+  };
   partitionColumn: string;
   operators?: Operators[];
   validHandler: (isValid: boolean) => void;
@@ -113,8 +116,6 @@ export interface AdvancedDataTypesState {
 }
 
 export const useSimpleTabFilterProps = (props: Props) => {
-  const defaultTimeFilter = useDefaultTimeFilter();
-
   const isOperatorRelevant = (operator: Operators, subject: string) => {
     const column = props.datasource.columns?.find(
       col => col.column_name === subject,
@@ -125,13 +126,9 @@ export const useSimpleTabFilterProps = (props: Props) => {
       !!column && (column.type === 'INT' || column.type === 'INTEGER');
     const isColumnFunction = !!column && !!column.expression;
 
-    if (operator && operator === Operators.LATEST_PARTITION) {
+    if (operator && CUSTOM_OPERATORS.has(operator)) {
       const { partitionColumn } = props;
       return partitionColumn && subject && subject === partitionColumn;
-    }
-    if (operator && operator === Operators.TEMPORAL_RANGE) {
-      // hide the TEMPORAL_RANGE operator
-      return false;
     }
     if (operator === Operators.IS_TRUE || operator === Operators.IS_FALSE) {
       return isColumnBoolean || isColumnNumber || isColumnFunction;
@@ -161,37 +158,21 @@ export const useSimpleTabFilterProps = (props: Props) => {
     } else if (option && 'saved_metric_name' in option) {
       subject = option.saved_metric_name;
       clause = CLAUSES.HAVING;
-    } else if (option?.label) {
+    } else if (option && option.label) {
       subject = option.label;
       clause = CLAUSES.HAVING;
     }
-    let { operator, operatorId, comparator } = props.adhocFilter;
-    operator =
-      operator && operatorId && isOperatorRelevant(operatorId, subject)
-        ? OPERATOR_ENUM_TO_OPERATOR_TYPE[operatorId].operation
-        : null;
-    if (!isDefined(operator)) {
-      // if operator is `null`, use the `IN` and reset the comparator.
-      operator = Operators.IN;
-      operatorId = Operators.IN;
-      comparator = undefined;
-    }
-
-    if (hasGenericChartAxes && isTemporalColumn(id, props.datasource)) {
-      subject = id;
-      operator = Operators.TEMPORAL_RANGE;
-      operatorId = Operators.TEMPORAL_RANGE;
-      comparator = defaultTimeFilter;
-    }
-
+    const { operator, operatorId } = props.adhocFilter;
     props.onChange(
       props.adhocFilter.duplicateWith({
         subject,
         clause,
-        operator,
+        operator:
+          operator && operatorId && isOperatorRelevant(operatorId, subject)
+            ? OPERATOR_ENUM_TO_OPERATOR_TYPE[operatorId].operation
+            : null,
         expressionType: EXPRESSION_TYPES.SIMPLE,
         operatorId,
-        comparator,
       }),
     );
   };
@@ -250,23 +231,12 @@ export const useSimpleTabFilterProps = (props: Props) => {
       }),
     );
   };
-  const onDatePickerChange = (columnName: string, timeRange: string) => {
-    props.onChange(
-      props.adhocFilter.duplicateWith({
-        subject: columnName,
-        operator: Operators.TEMPORAL_RANGE,
-        comparator: timeRange,
-        expressionType: EXPRESSION_TYPES.SIMPLE,
-      }),
-    );
-  };
   return {
     onSubjectChange,
     onOperatorChange,
     onComparatorChange,
     isOperatorRelevant,
     clearOperator,
-    onDatePickerChange,
   };
 };
 
@@ -276,7 +246,6 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
     onOperatorChange,
     isOperatorRelevant,
     onComparatorChange,
-    onDatePickerChange,
   } = useSimpleTabFilterProps(props);
   const [suggestions, setSuggestions] = useState<
     Record<'label' | 'value', any>[]
@@ -384,16 +353,6 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
   const labelText =
     comparator && comparator.length > 0 && createSuggestionsPlaceholder();
 
-  const datePicker = useDatePickerInAdhocFilter({
-    columnName: props.adhocFilter.subject,
-    timeRange:
-      props.adhocFilter.operator === Operators.TEMPORAL_RANGE
-        ? props.adhocFilter.comparator
-        : undefined,
-    datasource: props.datasource,
-    onChange: onDatePickerChange,
-  });
-
   useEffect(() => {
     const refreshComparatorSuggestions = () => {
       const { datasource } = props;
@@ -409,16 +368,14 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
         setLoadingComparatorSuggestions(true);
         SupersetClient.get({
           signal,
-          endpoint: `/api/v1/datasource/${datasource.type}/${datasource.id}/column/${col}/values/`,
+          endpoint: `/superset/filter/${datasource.type}/${datasource.id}/${col}/`,
         })
           .then(({ json }) => {
             setSuggestions(
-              json.result.map(
-                (suggestion: null | number | boolean | string) => ({
-                  value: suggestion,
-                  label: optionLabel(suggestion),
-                }),
-              ),
+              json.map((suggestion: null | number | boolean | string) => ({
+                value: suggestion,
+                label: optionLabel(suggestion),
+              })),
             );
             setLoadingComparatorSuggestions(false);
           })
@@ -428,9 +385,7 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
           });
       }
     };
-    if (!datePicker) {
-      refreshComparatorSuggestions();
-    }
+    refreshComparatorSuggestions();
   }, [props.adhocFilter.subject]);
 
   useEffect(() => {
@@ -455,35 +410,31 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
     }
   }, [props.adhocFilter.comparator]);
 
-  // another name for columns, just for following previous naming.
-  const subjectComponent = (
-    <Select
-      css={(theme: SupersetTheme) => ({
-        marginTop: theme.gridUnit * 4,
-        marginBottom: theme.gridUnit * 4,
-      })}
-      data-test="select-element"
-      options={columns.map(column => ({
-        value:
-          ('column_name' in column && column.column_name) ||
-          ('optionName' in column && column.optionName) ||
-          '',
-        label:
-          ('saved_metric_name' in column && column.saved_metric_name) ||
-          ('column_name' in column && column.column_name) ||
-          ('label' in column && column.label),
-        key:
-          ('id' in column && column.id) ||
-          ('optionName' in column && column.optionName) ||
-          undefined,
-        customLabel: renderSubjectOptionLabel(column),
-      }))}
-      {...subjectSelectProps}
-    />
-  );
-
-  const operatorsAndOperandComponent = (
+  return (
     <>
+      <Select
+        css={(theme: SupersetTheme) => ({
+          marginTop: theme.gridUnit * 4,
+          marginBottom: theme.gridUnit * 4,
+        })}
+        data-test="select-element"
+        options={columns.map(column => ({
+          value:
+            ('column_name' in column && column.column_name) ||
+            ('optionName' in column && column.optionName) ||
+            '',
+          label:
+            ('saved_metric_name' in column && column.saved_metric_name) ||
+            ('column_name' in column && column.column_name) ||
+            ('label' in column && column.label),
+          key:
+            ('id' in column && column.id) ||
+            ('optionName' in column && column.optionName) ||
+            undefined,
+          customLabel: renderSubjectOptionLabel(column),
+        }))}
+        {...subjectSelectProps}
+      />
       <Select
         css={(theme: SupersetTheme) => ({ marginBottom: theme.gridUnit * 4 })}
         options={(props.operators ?? OPERATORS_OPTIONS)
@@ -531,12 +482,6 @@ const AdhocFilterEditPopoverSimpleTabContent: React.FC<Props> = props => {
           />
         </Tooltip>
       )}
-    </>
-  );
-  return (
-    <>
-      {subjectComponent}
-      {datePicker ?? operatorsAndOperandComponent}
     </>
   );
 };

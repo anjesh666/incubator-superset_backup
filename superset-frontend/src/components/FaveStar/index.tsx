@@ -17,9 +17,10 @@
  * under the License.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { css, t, styled } from '@superset-ui/core';
 import { Tooltip } from 'src/components/Tooltip';
+import { useComponentDidMount } from 'src/hooks/useComponentDidMount';
 import Icons from 'src/components/Icons';
 
 export interface FaveStarProps {
@@ -45,9 +46,11 @@ const FaveStar = ({
   saveFaveStar,
   fetchFaveStar,
 }: FaveStarProps) => {
-  useEffect(() => {
-    fetchFaveStar?.(itemId);
-  }, [fetchFaveStar, itemId]);
+  useComponentDidMount(() => {
+    if (fetchFaveStar) {
+      fetchFaveStar(itemId);
+    }
+  });
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {

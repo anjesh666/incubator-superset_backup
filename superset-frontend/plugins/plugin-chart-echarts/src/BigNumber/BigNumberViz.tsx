@@ -16,19 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { MouseEvent } from 'react';
+import React from 'react';
 import {
   t,
   getNumberFormatter,
+  NumberFormatter,
   smartDateVerboseFormatter,
+  TimeFormatter,
   computeMaxFontSize,
   BRAND_COLOR,
   styled,
-  BinaryQueryObjectFilterClause,
 } from '@superset-ui/core';
+import { EChartsCoreOption } from 'echarts';
 import Echart from '../components/Echart';
-import { BigNumberVizProps } from './types';
-import { EventHandlers } from '../types';
+import { TimeSeriesDatum } from './types';
 
 const defaultNumberFormatter = getNumberFormatter();
 
@@ -41,7 +42,29 @@ const PROPORTION = {
   TRENDLINE: 0.3,
 };
 
-class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
+type BigNumberVisProps = {
+  className?: string;
+  width: number;
+  height: number;
+  bigNumber?: number | null;
+  bigNumberFallback?: TimeSeriesDatum;
+  headerFormatter: NumberFormatter | TimeFormatter;
+  formatTime: TimeFormatter;
+  headerFontSize: number;
+  kickerFontSize: number;
+  subheader: string;
+  subheaderFontSize: number;
+  showTimestamp?: boolean;
+  showTrendLine?: boolean;
+  startYAxisAtZero?: boolean;
+  timeRangeFixed?: boolean;
+  timestamp?: number;
+  trendLineData?: TimeSeriesDatum[];
+  mainColor: string;
+  echartOptions: EChartsCoreOption;
+};
+
+class BigNumberVis extends React.PureComponent<BigNumberVisProps> {
   static defaultProps = {
     className: '',
     headerFormatter: defaultNumberFormatter,
@@ -76,7 +99,7 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
 
   renderFallbackWarning() {
     const { bigNumberFallback, formatTime, showTimestamp } = this.props;
-    if (!formatTime || !bigNumberFallback || showTimestamp) return null;
+    if (!bigNumberFallback || showTimestamp) return null;
     return (
       <span
         className="alert alert-warning"
@@ -93,13 +116,7 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
 
   renderKicker(maxHeight: number) {
     const { timestamp, showTimestamp, formatTime, width } = this.props;
-    if (
-      !formatTime ||
-      !showTimestamp ||
-      typeof timestamp === 'string' ||
-      typeof timestamp === 'boolean'
-    )
-      return null;
+    if (!showTimestamp) return null;
 
     const text = timestamp === null ? '' : formatTime(timestamp);
 
@@ -128,28 +145,8 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
   }
 
   renderHeader(maxHeight: number) {
-    const { bigNumber, headerFormatter, width, colorThresholdFormatters } =
-      this.props;
-    // @ts-ignore
+    const { bigNumber, headerFormatter, width } = this.props;
     const text = bigNumber === null ? t('No data') : headerFormatter(bigNumber);
-
-    const hasThresholdColorFormatter =
-      Array.isArray(colorThresholdFormatters) &&
-      colorThresholdFormatters.length > 0;
-
-    let numberColor;
-    if (hasThresholdColorFormatter) {
-      colorThresholdFormatters!.forEach(formatter => {
-        const formatterResult = bigNumber
-          ? formatter.getColorFromValue(bigNumber as number)
-          : false;
-        if (formatterResult) {
-          numberColor = formatterResult;
-        }
-      });
-    } else {
-      numberColor = 'black';
-    }
 
     const container = this.createTemporaryContainer();
     document.body.append(container);
@@ -162,22 +159,13 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
     });
     container.remove();
 
-    const onContextMenu = (e: MouseEvent<HTMLDivElement>) => {
-      if (this.props.onContextMenu) {
-        e.preventDefault();
-        this.props.onContextMenu(e.nativeEvent.clientX, e.nativeEvent.clientY);
-      }
-    };
-
     return (
       <div
         className="header-line"
         style={{
           fontSize,
           height: maxHeight,
-          color: numberColor,
         }}
-        onContextMenu={onContextMenu}
       >
         {text}
       </div>
@@ -226,48 +214,19 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
   }
 
   renderTrendline(maxHeight: number) {
-    const { width, trendLineData, echartOptions, refs } = this.props;
+    const { width, trendLineData, echartOptions } = this.props;
 
     // if can't find any non-null values, no point rendering the trendline
     if (!trendLineData?.some(d => d[1] !== null)) {
       return null;
     }
 
-    const eventHandlers: EventHandlers = {
-      contextmenu: eventParams => {
-        if (this.props.onContextMenu) {
-          eventParams.event.stop();
-          const { data } = eventParams;
-          if (data) {
-            const pointerEvent = eventParams.event.event;
-            const drillToDetailFilters: BinaryQueryObjectFilterClause[] = [];
-            drillToDetailFilters.push({
-              col: this.props.formData?.granularitySqla,
-              grain: this.props.formData?.timeGrainSqla,
-              op: '==',
-              val: data[0],
-              formattedVal: this.props.xValueFormatter?.(data[0]),
-            });
-            this.props.onContextMenu(
-              pointerEvent.clientX,
-              pointerEvent.clientY,
-              { drillToDetail: drillToDetailFilters },
-            );
-          }
-        }
-      },
-    };
-
     return (
-      echartOptions && (
-        <Echart
-          refs={refs}
-          width={Math.floor(width)}
-          height={maxHeight}
-          echartOptions={echartOptions}
-          eventHandlers={eventHandlers}
-        />
-      )
+      <Echart
+        width={Math.floor(width)}
+        height={maxHeight}
+        echartOptions={echartOptions}
+      />
     );
   }
 
@@ -290,9 +249,7 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
           <div className="text-container" style={{ height: allTextHeight }}>
             {this.renderFallbackWarning()}
             {this.renderKicker(
-              Math.ceil(
-                (kickerFontSize || 0) * (1 - PROPORTION.TRENDLINE) * height,
-              ),
+              Math.ceil(kickerFontSize * (1 - PROPORTION.TRENDLINE) * height),
             )}
             {this.renderHeader(
               Math.ceil(headerFontSize * (1 - PROPORTION.TRENDLINE) * height),
@@ -311,7 +268,7 @@ class BigNumberVis extends React.PureComponent<BigNumberVizProps> {
     return (
       <div className={className} style={{ height }}>
         {this.renderFallbackWarning()}
-        {this.renderKicker((kickerFontSize || 0) * height)}
+        {this.renderKicker(kickerFontSize * height)}
         {this.renderHeader(Math.ceil(headerFontSize * height))}
         {this.renderSubheader(Math.ceil(subheaderFontSize * height))}
       </div>
@@ -326,7 +283,6 @@ export default styled(BigNumberVis)`
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
 
     &.no-trendline .subheader-line {
       padding-bottom: 0.3em;

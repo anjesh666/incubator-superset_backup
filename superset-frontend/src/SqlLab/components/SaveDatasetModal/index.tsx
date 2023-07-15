@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { FunctionComponent, useCallback, useState } from 'react';
 import { Radio } from 'src/components/Radio';
 import { RadioChangeEvent, AsyncSelect } from 'src/components';
 import { Input } from 'src/components/Input';
@@ -61,16 +61,10 @@ export type ExploreQuery = QueryResponse & {
 };
 
 export interface ISimpleColumn {
-  column_name?: string | null;
+  name?: string | null;
   type?: string | null;
   is_dttm?: boolean | null;
 }
-
-export type Database = {
-  backend: string;
-  id: number;
-  parameter: object;
-};
 
 export interface ISaveableDatasource {
   columns: ISimpleColumn[];
@@ -79,7 +73,6 @@ export interface ISaveableDatasource {
   sql: string;
   templateParams?: string | object | null;
   schema?: string | null;
-  database?: Database;
 }
 
 interface SaveDatasetModalProps {
@@ -147,7 +140,8 @@ const updateDataset = async (
 
 const UNTITLED = t('Untitled Dataset');
 
-export const SaveDatasetModal = ({
+// eslint-disable-next-line no-empty-pattern
+export const SaveDatasetModal: FunctionComponent<SaveDatasetModalProps> = ({
   visible,
   onHide,
   buttonTextOnSave,
@@ -156,7 +150,7 @@ export const SaveDatasetModal = ({
   datasource,
   openWindow = true,
   formData = {},
-}: SaveDatasetModalProps) => {
+}) => {
   const defaultVizType = useSelector<SqlLabRootState, string>(
     state => state.common?.conf?.DEFAULT_VIZ_TYPE || 'table',
   );
@@ -174,7 +168,6 @@ export const SaveDatasetModal = ({
   const [selectedDatasetToOverwrite, setSelectedDatasetToOverwrite] = useState<
     SelectValue | undefined
   >(undefined);
-  const [loading, setLoading] = useState<boolean>(false);
 
   const user = useSelector<SqlLabExploreRootState, User>(user =>
     getInitialState(user),
@@ -193,12 +186,6 @@ export const SaveDatasetModal = ({
     ...(formData || {}),
   };
   const handleOverwriteDataset = async () => {
-    // if user wants to overwrite a dataset we need to prompt them
-    if (!shouldOverwriteDataset) {
-      setShouldOverwriteDataset(true);
-      return;
-    }
-    setLoading(true);
     const [, key] = await Promise.all([
       updateDataset(
         datasource?.dbId,
@@ -218,11 +205,10 @@ export const SaveDatasetModal = ({
         ...formDataWithDefaults,
         datasource: `${datasetToOverwrite.datasetid}__table`,
         ...(defaultVizType === 'table' && {
-          all_columns: datasource?.columns?.map(column => column.column_name),
+          all_columns: datasource?.columns?.map(column => column.name),
         }),
       }),
     ]);
-    setLoading(false);
 
     const url = mountExploreUrl(null, {
       [URL_PARAMS.formDataKey.name]: key,
@@ -231,7 +217,6 @@ export const SaveDatasetModal = ({
 
     setShouldOverwriteDataset(false);
     setDatasetName(getDefaultDatasetName());
-    onHide();
   };
 
   const loadDatasetOverwriteOptions = useCallback(
@@ -272,7 +257,12 @@ export const SaveDatasetModal = ({
   );
 
   const handleSaveInDataset = () => {
-    setLoading(true);
+    // if user wants to overwrite a dataset we need to prompt them
+    if (newOrOverwrite === DatasetRadioState.OVERWRITE_DATASET) {
+      setShouldOverwriteDataset(true);
+      return;
+    }
+
     const selectedColumns = datasource?.columns ?? [];
 
     // The filters param is only used to test jinja templates.
@@ -294,34 +284,33 @@ export const SaveDatasetModal = ({
       createDatasource({
         schema: datasource.schema,
         sql: datasource.sql,
-        dbId: datasource.dbId || datasource?.database?.id,
+        dbId: datasource.dbId,
         templateParams,
         datasourceName: datasetName,
         columns: selectedColumns,
       }),
     )
-      .then((data: { id: number }) =>
-        postFormData(data.id, 'table', {
+      .then((data: { table_id: number }) =>
+        postFormData(data.table_id, 'table', {
           ...formDataWithDefaults,
-          datasource: `${data.id}__table`,
+          datasource: `${data.table_id}__table`,
           ...(defaultVizType === 'table' && {
-            all_columns: selectedColumns.map(column => column.column_name),
+            all_columns: selectedColumns.map(column => column.name),
           }),
         }),
       )
       .then((key: string) => {
-        setLoading(false);
         const url = mountExploreUrl(null, {
           [URL_PARAMS.formDataKey.name]: key,
         });
         createWindow(url);
-        setDatasetName(getDefaultDatasetName());
-        onHide();
       })
       .catch(() => {
-        setLoading(false);
         addDangerToast(t('An error occurred saving dataset'));
       });
+
+    setDatasetName(getDefaultDatasetName());
+    onHide();
   };
 
   const handleOverwriteDatasetOption = (value: SelectValue, option: any) => {
@@ -357,27 +346,23 @@ export const SaveDatasetModal = ({
       onHide={onHide}
       footer={
         <>
-          {newOrOverwrite === DatasetRadioState.SAVE_NEW && (
+          {!shouldOverwriteDataset && (
             <Button
               disabled={disableSaveAndExploreBtn}
               buttonStyle="primary"
               onClick={handleSaveInDataset}
-              loading={loading}
             >
               {buttonTextOnSave}
             </Button>
           )}
-          {newOrOverwrite === DatasetRadioState.OVERWRITE_DATASET && (
+          {shouldOverwriteDataset && (
             <>
-              {shouldOverwriteDataset && (
-                <Button onClick={handleOverwriteCancel}>{t('Back')}</Button>
-              )}
+              <Button onClick={handleOverwriteCancel}>Back</Button>
               <Button
                 className="md"
                 buttonStyle="primary"
                 onClick={handleOverwriteDataset}
                 disabled={disableSaveAndExploreBtn}
-                loading={loading}
               >
                 {buttonTextOnOverwrite}
               </Button>
@@ -402,7 +387,7 @@ export const SaveDatasetModal = ({
                 {t('Save as new')}
                 <Input
                   className="sdm-input"
-                  value={datasetName}
+                  defaultValue={datasetName}
                   onChange={handleDatasetNameChange}
                   disabled={newOrOverwrite !== 1}
                 />

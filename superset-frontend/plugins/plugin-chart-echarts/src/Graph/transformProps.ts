@@ -18,6 +18,7 @@
  */
 import {
   CategoricalColorNamespace,
+  ChartProps,
   getMetricLabel,
   DataRecord,
   DataRecordValue,
@@ -30,18 +31,10 @@ import {
   EChartGraphNode,
   DEFAULT_FORM_DATA as DEFAULT_GRAPH_FORM_DATA,
   EdgeSymbol,
-  GraphChartTransformedProps,
-  EchartsGraphChartProps,
 } from './types';
 import { DEFAULT_GRAPH_SERIES_OPTION } from './constants';
-import {
-  getChartPadding,
-  getColtypesMapping,
-  getLegendProps,
-  sanitizeHtml,
-} from '../utils/series';
-import { getDefaultTooltip } from '../utils/tooltip';
-import { Refs } from '../types';
+import { EchartsProps } from '../types';
+import { getChartPadding, getLegendProps, sanitizeHtml } from '../utils/series';
 
 type EdgeWithStyles = GraphEdgeItemOption & {
   lineStyle: Exclude<GraphEdgeItemOption['lineStyle'], undefined>;
@@ -164,22 +157,10 @@ function getCategoryName(columnName: string, name?: DataRecordValue) {
   return String(name);
 }
 
-export default function transformProps(
-  chartProps: EchartsGraphChartProps,
-): GraphChartTransformedProps {
-  const {
-    width,
-    height,
-    formData,
-    queriesData,
-    hooks,
-    inContextMenu,
-    filterState,
-    emitCrossFilters,
-    theme,
-  } = chartProps;
+export default function transformProps(chartProps: ChartProps): EchartsProps {
+  const { width, height, formData, queriesData } = chartProps;
   const data: DataRecord[] = queriesData[0].data || [];
-  const coltypeMapping = getColtypesMapping(queriesData[0]);
+
   const {
     source,
     target,
@@ -206,7 +187,6 @@ export default function transformProps(
     sliceId,
   }: EchartsGraphFormData = { ...DEFAULT_GRAPH_FORM_DATA, ...formData };
 
-  const refs: Refs = {};
   const metricLabel = getMetricLabel(metric);
   const colorFn = CategoricalColorNamespace.getScale(colorScheme as string);
   const nodes: { [name: string]: number } = {};
@@ -218,20 +198,16 @@ export default function transformProps(
    * Get the node id of an existing node,
    * or create a new node if it doesn't exist.
    */
-  function getOrCreateNode(name: string, col: string, category?: string) {
+  function getOrCreateNode(name: string, category?: string) {
     if (!(name in nodes)) {
       nodes[name] = echartNodes.length;
       echartNodes.push({
         id: String(nodes[name]),
         name,
-        col,
         value: 0,
         category,
         select: DEFAULT_GRAPH_SERIES_OPTION.select,
-        tooltip: {
-          ...getDefaultTooltip(refs),
-          ...DEFAULT_GRAPH_SERIES_OPTION.tooltip,
-        },
+        tooltip: DEFAULT_GRAPH_SERIES_OPTION.tooltip,
       });
     }
     const node = echartNodes[nodes[name]];
@@ -259,8 +235,8 @@ export default function transformProps(
     const targetCategoryName = targetCategory
       ? getCategoryName(targetCategory, link[targetCategory])
       : undefined;
-    const sourceNode = getOrCreateNode(sourceName, source, sourceCategoryName);
-    const targetNode = getOrCreateNode(targetName, target, targetCategoryName);
+    const sourceNode = getOrCreateNode(sourceName, sourceCategoryName);
+    const targetNode = getOrCreateNode(targetName, targetCategoryName);
 
     sourceNode.value += value;
     targetNode.value += value;
@@ -319,8 +295,6 @@ export default function transformProps(
     animationDuration: DEFAULT_GRAPH_SERIES_OPTION.animationDuration,
     animationEasing: DEFAULT_GRAPH_SERIES_OPTION.animationEasing,
     tooltip: {
-      ...getDefaultTooltip(refs),
-      show: !inContextMenu,
       formatter: (params: any): string =>
         edgeFormatter(
           params.data.source,
@@ -330,24 +304,14 @@ export default function transformProps(
         ),
     },
     legend: {
-      ...getLegendProps(legendType, legendOrientation, showLegend, theme),
+      ...getLegendProps(legendType, legendOrientation, showLegend),
       data: categoryList,
     },
     series,
   };
-
-  const { onContextMenu, setDataMask } = hooks;
-
   return {
     width,
     height,
-    formData,
     echartOptions,
-    onContextMenu,
-    setDataMask,
-    filterState,
-    refs,
-    emitCrossFilters,
-    coltypeMapping,
   };
 }

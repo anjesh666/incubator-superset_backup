@@ -17,44 +17,30 @@
  * under the License.
  */
 import React, { useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { css, styled, t } from '@superset-ui/core';
-
 import Alert from 'src/components/Alert';
+import { t } from '@superset-ui/core';
 import TableView from 'src/components/TableView';
 import Button from 'src/components/Button';
 import Loading from 'src/components/Loading';
 import ModalTrigger from 'src/components/ModalTrigger';
 import { EmptyWrapperType } from 'src/components/TableView/TableView';
-import useQueryEditor from 'src/SqlLab/hooks/useQueryEditor';
-import { SqlLabRootState, QueryCostEstimate } from 'src/SqlLab/types';
 
-export interface EstimateQueryCostButtonProps {
+interface EstimateQueryCostButtonProps {
   getEstimate: Function;
-  queryEditorId: string;
+  queryCostEstimate: Record<string, any>;
+  selectedText?: string;
   tooltip?: string;
   disabled?: boolean;
 }
 
-const CostEstimateModalStyles = styled.div`
-  ${({ theme }) => css`
-    font-size: ${theme.typography.sizes.s};
-  `}
-`;
-
 const EstimateQueryCostButton = ({
   getEstimate,
-  queryEditorId,
+  queryCostEstimate = {},
+  selectedText,
   tooltip = '',
   disabled = false,
 }: EstimateQueryCostButtonProps) => {
-  const queryCostEstimate = useSelector<
-    SqlLabRootState,
-    QueryCostEstimate | undefined
-  >(state => state.sqlLab.queryCostEstimates?.[queryEditorId]);
-
-  const { selectedText } = useQueryEditor(queryEditorId, ['selectedText']);
-  const { cost } = queryCostEstimate || {};
+  const { cost } = queryCostEstimate;
   const tableData = useMemo(() => (Array.isArray(cost) ? cost : []), [cost]);
   const columns = useMemo(
     () =>
@@ -71,25 +57,24 @@ const EstimateQueryCostButton = ({
   };
 
   const renderModalBody = () => {
-    if (queryCostEstimate?.error) {
+    if (queryCostEstimate.error !== null) {
       return (
         <Alert
           key="query-estimate-error"
           type="error"
-          message={queryCostEstimate?.error}
+          message={queryCostEstimate.error}
         />
       );
     }
-    if (queryCostEstimate?.completed) {
+    if (queryCostEstimate.completed) {
       return (
-        <CostEstimateModalStyles>
-          <TableView
-            columns={columns}
-            data={tableData}
-            withPagination={false}
-            emptyWrapperType={EmptyWrapperType.Small}
-          />
-        </CostEstimateModalStyles>
+        <TableView
+          columns={columns}
+          data={tableData}
+          withPagination={false}
+          emptyWrapperType={EmptyWrapperType.Small}
+          className="cost-estimate"
+        />
       );
     }
     return <Loading position="normal" />;

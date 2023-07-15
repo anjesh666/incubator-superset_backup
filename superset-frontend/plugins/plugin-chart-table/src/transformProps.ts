@@ -111,17 +111,14 @@ const processColumns = memoizeOne(function processColumns(
         !(rawPercentMetricsSet.has(key) && !metricsSet.has(key)),
     )
     .map((key: string, i) => {
+      const label = verboseMap?.[key] || key;
       const dataType = coltypes[i];
       const config = columnConfig[key] || {};
       // for the purpose of presentation, only numeric values are treated as metrics
       // because users can also add things like `MAX(str_col)` as a metric.
       const isMetric = metricsSet.has(key) && isNumeric(key, records);
       const isPercentMetric = percentMetricsSet.has(key);
-      const label = isPercentMetric
-        ? `%${verboseMap?.[key.replace('%', '')] || key}`
-        : verboseMap?.[key] || key;
       const isTime = dataType === GenericDataType.TEMPORAL;
-      const isNumber = dataType === GenericDataType.NUMERIC;
       const savedFormat = columnFormats?.[key];
       const numberFormat = config.d3NumberFormat || savedFormat;
 
@@ -154,7 +151,7 @@ const processColumns = memoizeOne(function processColumns(
       } else if (isPercentMetric) {
         // percent metrics have a default format
         formatter = getNumberFormatter(numberFormat || PERCENT_3_POINT);
-      } else if (isMetric || (isNumber && numberFormat)) {
+      } else if (isMetric || numberFormat) {
         formatter = getNumberFormatter(numberFormat);
       }
       return {
@@ -207,12 +204,7 @@ const transformProps = (
     queriesData = [],
     filterState,
     ownState: serverPaginationData,
-    hooks: {
-      onAddFilter: onChangeFilter,
-      setDataMask = () => {},
-      onContextMenu,
-    },
-    emitCrossFilters,
+    hooks: { onAddFilter: onChangeFilter, setDataMask = () => {} },
   } = chartProps;
 
   const {
@@ -221,6 +213,7 @@ const transformProps = (
     show_cell_bars: showCellBars = true,
     include_search: includeSearch = false,
     page_length: pageLength,
+    emit_filter: emitFilter,
     server_pagination: serverPagination = false,
     server_page_length: serverPageLength = 10,
     order_desc: sortDesc = false,
@@ -276,12 +269,11 @@ const transformProps = (
       ? serverPageLength
       : getPageSize(pageLength, data.length, columns.length),
     filters: filterState.filters,
-    emitCrossFilters,
+    emitFilter,
     onChangeFilter,
     columnColorFormatters,
     timeGrain,
     allowRearrangeColumns,
-    onContextMenu,
   };
 };
 

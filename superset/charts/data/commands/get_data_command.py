@@ -17,8 +17,6 @@
 import logging
 from typing import Any, Dict
 
-from flask_babel import lazy_gettext as _
-
 from superset.charts.commands.exceptions import (
     ChartDataCacheLoadError,
     ChartDataQueryFailedError,
@@ -51,9 +49,7 @@ class ChartDataCommand(BaseCommand):
         # TODO: QueryContext should support SIP-40 style errors
         for query in payload["queries"]:
             if query.get("error"):
-                raise ChartDataQueryFailedError(
-                    _("Error: %(error)s", error=query["error"])
-                )
+                raise ChartDataQueryFailedError(f"Error: {query['error']}")
 
         return_value = {
             "query_context": self._query_context,

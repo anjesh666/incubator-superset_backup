@@ -1,3 +1,11 @@
+import {
+  ExtraFormDataAppend,
+  ExtraFormDataOverrideExtras,
+  ExtraFormDataOverrideRegular,
+  ExtraFormDataOverride,
+  QueryObject,
+} from './types';
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -16,16 +24,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import {
-  ExtraFormDataAppend,
-  ExtraFormDataOverrideExtras,
-  ExtraFormDataOverrideRegular,
-  ExtraFormDataOverride,
-  QueryObject,
-} from './types';
-
 export const DTTM_ALIAS = '__timestamp';
-export const NO_TIME_RANGE = 'No filter';
 
 export const EXTRA_FORM_DATA_OVERRIDE_EXTRA_KEYS: (keyof ExtraFormDataOverrideExtras)[] =
   ['relative_start', 'relative_end', 'time_grain_sqla'];

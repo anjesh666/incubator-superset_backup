@@ -11,8 +11,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/apache/superset.git",
-    "directory": "superset-frontend/plugins/plugin-chart-pivot-table"
+    "url": "git+https://github.com/apache-superset/superset-ui.git"
   },
   "keywords": [
     "superset"
@@ -20,9 +19,9 @@
   "author": "Superset",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/apache/superset/issues"
+    "url": "https://github.com/apache-superset/superset-ui/issues"
   },
-  "homepage": "https://github.com/apache/superset/tree/master/superset-frontend/plugins/plugin-chart-pivot-table#readme",
+  "homepage": "https://github.com/apache-superset/superset-ui#readme",
   "publishConfig": {
     "access": "public"
   },
@@ -30,11 +29,10 @@
   "peerDependencies": {
     "@superset-ui/chart-controls": "*",
     "@superset-ui/core": "*",
-    "@ant-design/icons": "^5.0.1",
+    "@ant-design/icons": "^4.2.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
-    "prop-types": "*",
-    "lodash": "^4.17.11"
+    "prop-types": "*"
   },
   "devDependencies": {
     "@babel/types": "^7.13.12",

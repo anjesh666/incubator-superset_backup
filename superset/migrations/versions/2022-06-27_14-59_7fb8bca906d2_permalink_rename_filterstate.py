@@ -66,6 +66,7 @@ def upgrade():
                 state["anchor"] = state["hash"]
                 del state["hash"]
             entry.value = pickle.dumps(value)
+    session.commit()
 
 
 def downgrade():
@@ -86,3 +87,5 @@ def downgrade():
                 state["hash"] = state["anchor"]
                 del state["anchor"]
             entry.value = pickle.dumps(value)
+        session.merge(entry)
+    session.commit()

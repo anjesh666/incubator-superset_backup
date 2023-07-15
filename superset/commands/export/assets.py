@@ -37,6 +37,7 @@ class ExportAssetsCommand(BaseCommand):
     """
 
     def run(self) -> Iterator[Tuple[str, str]]:
+
         metadata = {
             "version": EXPORT_VERSION,
             "type": "assets",

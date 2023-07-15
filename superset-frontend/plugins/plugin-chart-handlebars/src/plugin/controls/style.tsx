@@ -20,9 +20,8 @@ import {
   ControlSetItem,
   CustomControlConfig,
   sharedControls,
-  InfoTooltipWithTrigger,
 } from '@superset-ui/chart-controls';
-import { t, useTheme } from '@superset-ui/core';
+import { t } from '@superset-ui/core';
 import React from 'react';
 import { CodeEditor } from '../../components/CodeEditor/CodeEditor';
 import { ControlHeader } from '../../components/ControlHeader/controlHeader';
@@ -33,32 +32,17 @@ interface StyleCustomControlProps {
 }
 
 const StyleControl = (props: CustomControlConfig<StyleCustomControlProps>) => {
-  const theme = useTheme();
-
-  const defaultValue = props?.value
-    ? undefined
-    : `/*
-  .data-list {
-    background-color: yellow;
-  }
-*/`;
+  const val = String(
+    props?.value ? props?.value : props?.default ? props?.default : '',
+  );
 
   return (
     <div>
-      <ControlHeader>
-        <div>
-          {props.label}
-          <InfoTooltipWithTrigger
-            iconsStyle={{ marginLeft: theme.gridUnit }}
-            tooltip={t('You need to configure HTML sanitization to use CSS')}
-          />
-        </div>
-      </ControlHeader>
+      <ControlHeader>{props.label}</ControlHeader>
       <CodeEditor
         theme="dark"
         mode="css"
-        value={props.value}
-        defaultValue={defaultValue}
+        value={val}
         onChange={source => {
           debounceFunc(props.onChange, source || '');
         }}
@@ -74,6 +58,11 @@ export const styleControlSetItem: ControlSetItem = {
     type: StyleControl,
     label: t('CSS Styles'),
     description: t('CSS applied to the chart'),
+    default: `/*
+.data-list {
+  background-color: yellow;
+}
+*/`,
     isInt: false,
     renderTrigger: true,
 

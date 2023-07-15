@@ -76,7 +76,7 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
 
 
 @pytest.mark.parametrize(
-    "description, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions",
+    "descriptiom, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions",
     [
         (
             "Many to one readonly",
@@ -178,7 +178,7 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
             (),
         ),
         (
-            "Many to one with old permission that gets deleted",
+            "Many to one with with old permission that gets deleted",
             {
                 "NewDummy": (
                     "can_read",
@@ -239,12 +239,12 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
     ],
 )
 def test_migrate_role(
-    description, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions
+    descriptiom, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions
 ):
     """
     Permission migration: generic tests
     """
-    logger.info(description)
+    logger.info(descriptiom)
     with create_old_role(pvm_map, external_pvms) as old_role:
         role_name = old_role.name
         session = db.session

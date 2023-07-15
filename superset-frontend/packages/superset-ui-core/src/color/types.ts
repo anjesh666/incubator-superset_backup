@@ -17,10 +17,6 @@
  * under the License.
  */
 
-export interface ColorsInitLookup {
-  [key: string]: string | number;
-}
-
 export interface ColorsLookup {
   [key: string]: string;
 }

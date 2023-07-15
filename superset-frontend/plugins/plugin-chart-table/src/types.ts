@@ -30,7 +30,6 @@ import {
   ChartDataResponseResult,
   QueryFormData,
   SetDataMaskHook,
-  ContextMenuFilters,
 } from '@superset-ui/core';
 import { ColorFormatters, ColumnConfig } from '@superset-ui/chart-controls';
 
@@ -69,6 +68,7 @@ export type TableChartFormData = QueryFormData & {
   order_desc?: boolean;
   show_cell_bars?: boolean;
   table_timestamp_format?: string;
+  emit_filter?: boolean;
   time_grain_sqla?: TimeGranularity;
   column_config?: Record<string, ColumnConfig>;
   allow_rearrange_columns?: boolean;
@@ -107,15 +107,10 @@ export interface TableChartTransformedProps<D extends DataRecord = DataRecord> {
   // These are dashboard filters, don't be confused with in-chart search filter
   // enabled by `includeSearch`
   filters?: DataRecordFilters;
-  emitCrossFilters?: boolean;
+  emitFilter?: boolean;
   onChangeFilter?: ChartProps['hooks']['onAddFilter'];
   columnColorFormatters?: ColorFormatters;
   allowRearrangeColumns?: boolean;
-  onContextMenu?: (
-    clientX: number,
-    clientY: number,
-    filters?: ContextMenuFilters,
-  ) => void;
 }
 
 export default {};

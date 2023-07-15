@@ -270,9 +270,6 @@ test('Empty "Certified by" should clear "Certification details"', async () => {
   renderModal(noCertifiedByProps);
 
   expect(
-    await screen.findByRole('textbox', { name: 'Certification details' }),
-  ).toBeInTheDocument();
-  expect(
     screen.getByRole('textbox', { name: 'Certification details' }),
   ).toHaveValue('');
 });

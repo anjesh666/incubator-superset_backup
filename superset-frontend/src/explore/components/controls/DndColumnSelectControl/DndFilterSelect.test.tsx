@@ -17,28 +17,18 @@
  * under the License.
  */
 import React from 'react';
-import thunk from 'redux-thunk';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
-
-import {
-  ensureIsArray,
-  FeatureFlag,
-  GenericDataType,
-  QueryFormData,
-} from '@superset-ui/core';
-import { ColumnMeta } from '@superset-ui/chart-controls';
-import { TimeseriesDefaultFormData } from '@superset-ui/plugin-chart-echarts';
-
+import { GenericDataType } from '@superset-ui/core';
 import { render, screen } from 'spec/helpers/testing-library';
 import AdhocMetric from 'src/explore/components/controls/MetricControl/AdhocMetric';
-import AdhocFilter from 'src/explore/components/controls/FilterControl/AdhocFilter';
+import AdhocFilter, {
+  EXPRESSION_TYPES,
+} from 'src/explore/components/controls/FilterControl/AdhocFilter';
 import {
   DndFilterSelect,
   DndFilterSelectProps,
 } from 'src/explore/components/controls/DndColumnSelectControl/DndFilterSelect';
 import { PLACEHOLDER_DATASOURCE } from 'src/dashboard/constants';
-import { EXPRESSION_TYPES } from '../FilterControl/types';
+import { TimeseriesDefaultFormData } from '@superset-ui/plugin-chart-echarts';
 
 const defaultProps: DndFilterSelectProps = {
   type: 'DndFilterSelect',
@@ -58,113 +48,76 @@ const baseFormData = {
   datasource: 'table__1',
 };
 
-beforeAll(() => {
-  window.featureFlags = { [FeatureFlag.ENABLE_EXPLORE_DRAG_AND_DROP]: true };
+test('renders with default props', () => {
+  render(<DndFilterSelect {...defaultProps} />, { useDnd: true });
+  expect(screen.getByText('Drop columns or metrics here')).toBeInTheDocument();
 });
 
-afterAll(() => {
-  window.featureFlags = {};
-});
-
-const mockStore = configureStore([thunk]);
-const store = mockStore({});
-
-function setup({
-  value = undefined,
-  formData = baseFormData,
-  columns = [],
-}: {
-  value?: AdhocFilter;
-  formData?: QueryFormData;
-  columns?: ColumnMeta[];
-} = {}) {
-  return (
-    <Provider store={store}>
-      <DndFilterSelect
-        {...defaultProps}
-        value={ensureIsArray(value)}
-        formData={formData}
-        columns={columns}
-      />
-    </Provider>
-  );
-}
-
-test('renders with default props', async () => {
-  render(setup(), { useDnd: true });
-  expect(
-    await screen.findByText('Drop columns/metrics here or click'),
-  ).toBeInTheDocument();
-});
-
-test('renders with value', async () => {
+test('renders with value', () => {
   const value = new AdhocFilter({
     sqlExpression: 'COUNT(*)',
     expressionType: EXPRESSION_TYPES.SQL,
   });
-  render(setup({ value }), {
+  render(<DndFilterSelect {...defaultProps} value={[value]} />, {
     useDnd: true,
   });
-  expect(await screen.findByText('COUNT(*)')).toBeInTheDocument();
+  expect(screen.getByText('COUNT(*)')).toBeInTheDocument();
 });
 
-test('renders options with saved metric', async () => {
+test('renders options with saved metric', () => {
   render(
-    setup({
-      formData: {
+    <DndFilterSelect
+      {...defaultProps}
+      formData={{
         ...baseFormData,
         ...TimeseriesDefaultFormData,
         metrics: ['saved_metric'],
-      },
-    }),
+      }}
+    />,
     {
       useDnd: true,
     },
   );
-  expect(
-    await screen.findByText('Drop columns/metrics here or click'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('Drop columns or metrics here')).toBeInTheDocument();
 });
 
-test('renders options with column', async () => {
+test('renders options with column', () => {
   render(
-    setup({
-      columns: [
+    <DndFilterSelect
+      {...defaultProps}
+      columns={[
         {
           id: 1,
           type: 'VARCHAR',
           type_generic: GenericDataType.STRING,
           column_name: 'Column',
         },
-      ],
-    }),
+      ]}
+    />,
     {
       useDnd: true,
     },
   );
-  expect(
-    await screen.findByText('Drop columns/metrics here or click'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('Drop columns or metrics here')).toBeInTheDocument();
 });
 
-test('renders options with adhoc metric', async () => {
+test('renders options with adhoc metric', () => {
   const adhocMetric = new AdhocMetric({
     expression: 'AVG(birth_names.num)',
     metric_name: 'avg__num',
   });
   render(
-    setup({
-      formData: {
+    <DndFilterSelect
+      {...defaultProps}
+      formData={{
         ...baseFormData,
         ...TimeseriesDefaultFormData,
         metrics: [adhocMetric],
-      },
-    }),
+      }}
+    />,
     {
       useDnd: true,
     },
   );
-  expect(
-    await screen.findByText('Drop columns/metrics here or click'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('Drop columns or metrics here')).toBeInTheDocument();
 });

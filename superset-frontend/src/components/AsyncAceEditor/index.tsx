@@ -84,7 +84,6 @@ export type AsyncAceEditorOptions = {
   defaultMode?: AceEditorMode;
   defaultTheme?: AceEditorTheme;
   defaultTabSize?: number;
-  fontFamily?: string;
   placeholder?: React.ComponentType<
     PlaceholderProps & Partial<IAceEditorProps>
   > | null;
@@ -99,7 +98,6 @@ export default function AsyncAceEditor(
     defaultMode,
     defaultTheme,
     defaultTabSize = 2,
-    fontFamily = 'Menlo, Consolas, Courier New, Ubuntu Mono, source-code-pro, Lucida Console, monospace',
     placeholder,
   }: AsyncAceEditorOptions = {},
 ) {
@@ -155,7 +153,6 @@ export default function AsyncAceEditor(
             theme={theme}
             tabSize={tabSize}
             defaultValue={defaultValue}
-            setOptions={{ fontFamily }}
             {...props}
           />
         );

@@ -32,8 +32,6 @@ import { DatabaseObject } from 'src/views/CRUD/types';
 import { UserWithPermissionsAndRoles } from 'src/types/bootstrapTypes';
 import { Slice } from 'src/types/Chart';
 
-export type SaveActionType = 'overwrite' | 'saveas';
-
 export type ChartStatus =
   | 'loading'
   | 'rendered'
@@ -74,14 +72,6 @@ export interface ExplorePageInitialData {
   dataset: Dataset;
   form_data: QueryFormData;
   slice: Slice | null;
-  metadata?: {
-    created_on_humanized: string;
-    changed_on_humanized: string;
-    owners: string[];
-    created_by?: string;
-    changed_by?: string;
-  };
-  saveAction?: SaveActionType | null;
 }
 
 export interface ExploreResponsePayload {
@@ -93,7 +83,6 @@ export interface ExplorePageState {
   common: {
     flash_messages: string[];
     conf: JsonObject;
-    locale: string;
   };
   charts: { [key: number]: ChartState };
   datasources: { [key: string]: Dataset };
@@ -112,7 +101,6 @@ export interface ExplorePageState {
     controlsTransferred: string[];
     standalone: boolean;
     force: boolean;
-    common: JsonObject;
   };
   sliceEntities?: JsonObject; // propagated from Dashboard view
 }

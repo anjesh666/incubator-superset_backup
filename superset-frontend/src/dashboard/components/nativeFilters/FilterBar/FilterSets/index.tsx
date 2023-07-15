@@ -40,8 +40,8 @@ import { findExistingFilterSet } from './utils';
 import { useFilters, useNativeFiltersDataMask, useFilterSets } from '../state';
 import Footer from './Footer';
 import FilterSetUnit from './FilterSetUnit';
-import { getFilterBarTestId } from '../utils';
-import { TabIds } from '../types';
+import { getFilterBarTestId } from '..';
+import { TabIds } from '../utils';
 
 const FilterSetsWrapper = styled.div`
   display: grid;

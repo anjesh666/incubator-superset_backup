@@ -17,12 +17,12 @@
 import json
 from typing import Callable
 
-from flask import abort, g, request
+from flask import abort, request
 from flask_appbuilder import expose
-from flask_login import AnonymousUserMixin, login_user
+from flask_login import AnonymousUserMixin, LoginManager
 from flask_wtf.csrf import same_origin
 
-from superset import event_logger, is_feature_enabled
+from superset import event_logger, is_feature_enabled, security_manager
 from superset.embedded.dao import EmbeddedDAO
 from superset.superset_typing import FlaskResponse
 from superset.utils import core as utils
@@ -55,8 +55,6 @@ class EmbeddedView(BaseSupersetView):
         if not embedded:
             abort(404)
 
-        assert embedded is not None
-
         # validate request referrer in allowed domains
         is_referrer_allowed = not embedded.allowed_domains
         for domain in embedded.allowed_domains:
@@ -70,7 +68,8 @@ class EmbeddedView(BaseSupersetView):
         # Log in as an anonymous user, just for this view.
         # This view needs to be visible to all users,
         # and building the page fails if g.user and/or ctx.user aren't present.
-        login_user(AnonymousUserMixin(), force=True)
+        login_manager: LoginManager = security_manager.lm
+        login_manager.reload_user(AnonymousUserMixin())
 
         add_extra_log_payload(
             embedded_dashboard_id=uuid,
@@ -78,7 +77,7 @@ class EmbeddedView(BaseSupersetView):
         )
 
         bootstrap_data = {
-            "common": common_bootstrap_payload(g.user),
+            "common": common_bootstrap_payload(),
             "embedded": {
                 "dashboard_id": embedded.dashboard_id,
             },

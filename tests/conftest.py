@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Callable, TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, PropertyMock
 
-from flask import current_app, Flask
+from flask import Flask
 from flask.ctx import AppContext
 from pytest import fixture
 
@@ -40,7 +40,6 @@ from tests.example_data.data_loading.pandas.pands_data_loading_conf import (
 from tests.example_data.data_loading.pandas.table_df_convertor import (
     TableToDfConvertorImpl,
 )
-from tests.integration_tests.test_app import app
 
 SUPPORT_DATETIME_TYPE = "support_datetime_type"
 
@@ -71,9 +70,7 @@ def example_db_provider() -> Callable[[], Database]:
 
 @fixture(scope="session")
 def example_db_engine(example_db_provider: Callable[[], Database]) -> Engine:
-    with app.app_context():
-        with example_db_provider().get_sqla_engine_with_context() as engine:
-            return engine
+    return example_db_provider().get_sqla_engine()
 
 
 @fixture(scope="session")

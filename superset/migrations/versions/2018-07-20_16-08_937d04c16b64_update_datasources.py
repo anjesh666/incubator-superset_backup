@@ -31,6 +31,7 @@ from alembic import op
 
 
 def upgrade():
+
     # Enforce that the datasource_name column be non-nullable.
     with op.batch_alter_table("datasources") as batch_op:
         batch_op.alter_column(
@@ -39,6 +40,7 @@ def upgrade():
 
 
 def downgrade():
+
     # Forego that the datasource_name column be non-nullable.
     with op.batch_alter_table("datasources") as batch_op:
         batch_op.alter_column(

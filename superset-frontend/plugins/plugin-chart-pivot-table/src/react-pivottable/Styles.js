@@ -20,10 +20,9 @@
 import { css, styled } from '@superset-ui/core';
 
 export const Styles = styled.div`
-  ${({ theme, isDashboardEditMode }) => css`
+  ${({ theme }) => css`
     table.pvtTable {
-      position: ${isDashboardEditMode ? 'inherit' : 'relative'};
-      width: calc(100% - ${theme.gridUnit}px);
+      position: relative;
       font-size: ${theme.typography.sizes.s}px;
       text-align: left;
       margin: ${theme.gridUnit}px;
@@ -33,7 +32,7 @@ export const Styles = styled.div`
     }
 
     table thead {
-      position: ${isDashboardEditMode ? 'inherit' : 'sticky'};
+      position: sticky;
       top: 0;
     }
 
@@ -52,7 +51,7 @@ export const Styles = styled.div`
     }
 
     table.pvtTable tbody tr.pvtRowTotals {
-      position: ${isDashboardEditMode ? 'inherit' : 'sticky'};
+      position: sticky;
       bottom: 0;
     }
 

@@ -14,33 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from superset.exceptions import SupersetException
 
 
-class NotificationError(SupersetException):
-    """
-    Generic unknown exception - only used when
-    bubbling up unknown exceptions from lower levels
-    """
-
-
-class NotificationParamException(SupersetException):
-    status = 422
-
-
-class NotificationAuthorizationException(SupersetException):
-    status = 401
-
-
-class NotificationUnprocessableException(SupersetException):
-    """
-    When a third party client service is down.
-    The request should be retried. There is no further
-    action required on our part or the user's other than to retry
-    """
-
-    status = 400
-
-
-class NotificationMalformedException(SupersetException):
-    status = 400
+class NotificationError(Exception):
+    pass

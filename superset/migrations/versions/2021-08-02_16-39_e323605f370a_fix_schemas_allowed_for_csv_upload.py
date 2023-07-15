@@ -39,6 +39,7 @@ Base = declarative_base()
 
 
 class Database(Base):
+
     __tablename__ = "dbs"
     id = Column(Integer, primary_key=True)
     extra = Column(Text)

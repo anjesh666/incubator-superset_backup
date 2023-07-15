@@ -17,10 +17,7 @@
  * under the License.
  */
 import React from 'react';
-import {
-  styledMount as mount,
-  styledShallow as shallow,
-} from 'spec/helpers/theming';
+import { shallow, mount } from 'enzyme';
 import sinon from 'sinon';
 
 import newComponentFactory from 'src/dashboard/util/newComponentFactory';

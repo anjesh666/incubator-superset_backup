@@ -21,12 +21,11 @@ import { t } from '@superset-ui/core';
 import {
   ControlPanelConfig,
   D3_FORMAT_OPTIONS,
-  D3_NUMBER_FORMAT_DESCRIPTION_VALUES_TEXT,
   sections,
   sharedControls,
   ControlStateMapping,
+  emitFilterControl,
   getStandardizedControls,
-  D3_FORMAT_DOCS,
 } from '@superset-ui/chart-controls';
 import { DEFAULT_FORM_DATA, EchartsFunnelLabelTypeType } from './types';
 import { legendSection } from '../controls';
@@ -46,6 +45,7 @@ const config: ControlPanelConfig = {
         ['groupby'],
         ['metric'],
         ['adhoc_filters'],
+        emitFilterControl,
         [
           {
             name: 'row_limit',
@@ -87,17 +87,17 @@ const config: ControlPanelConfig = {
               default: labelType,
               renderTrigger: true,
               choices: [
-                [EchartsFunnelLabelTypeType.Key, t('Category Name')],
-                [EchartsFunnelLabelTypeType.Value, t('Value')],
-                [EchartsFunnelLabelTypeType.Percent, t('Percentage')],
-                [EchartsFunnelLabelTypeType.KeyValue, t('Category and Value')],
+                [EchartsFunnelLabelTypeType.Key, 'Category Name'],
+                [EchartsFunnelLabelTypeType.Value, 'Value'],
+                [EchartsFunnelLabelTypeType.Percent, 'Percentage'],
+                [EchartsFunnelLabelTypeType.KeyValue, 'Category and Value'],
                 [
                   EchartsFunnelLabelTypeType.KeyPercent,
-                  t('Category and Percentage'),
+                  'Category and Percentage',
                 ],
                 [
                   EchartsFunnelLabelTypeType.KeyValuePercent,
-                  t('Category, Value and Percentage'),
+                  'Category, Value and Percentage',
                 ],
               ],
               description: t('What should be shown on the label?'),
@@ -114,7 +114,9 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
               default: numberFormat,
               choices: D3_FORMAT_OPTIONS,
-              description: `${D3_FORMAT_DOCS} ${D3_NUMBER_FORMAT_DESCRIPTION_VALUES_TEXT}`,
+              description: `${t(
+                'D3 format syntax: https://github.com/d3/d3-format',
+              )} ${t('Only applies when "Label Type" is set to show values.')}`,
             },
           },
         ],

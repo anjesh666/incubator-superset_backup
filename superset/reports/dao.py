@@ -26,8 +26,7 @@ from sqlalchemy.orm import Session
 from superset.dao.base import BaseDAO
 from superset.dao.exceptions import DAOCreateFailedError, DAODeleteFailedError
 from superset.extensions import db
-from superset.reports.filters import ReportScheduleFilter
-from superset.reports.models import (
+from superset.models.reports import (
     ReportExecutionLog,
     ReportRecipients,
     ReportSchedule,
@@ -44,7 +43,6 @@ REPORT_SCHEDULE_ERROR_NOTIFICATION_MARKER = "Notification sent with error"
 
 class ReportScheduleDAO(BaseDAO):
     model_cls = ReportSchedule
-    base_filter = ReportScheduleFilter
 
     @staticmethod
     def find_by_chart_id(chart_id: int) -> List[ReportSchedule]:
@@ -113,7 +111,8 @@ class ReportScheduleDAO(BaseDAO):
             if commit:
                 db.session.commit()
         except SQLAlchemyError as ex:
-            db.session.rollback()
+            if commit:
+                db.session.rollback()
             raise DAODeleteFailedError(str(ex)) from ex
 
     @staticmethod
@@ -156,7 +155,7 @@ class ReportScheduleDAO(BaseDAO):
         return found_id is None or found_id == expect_id
 
     @classmethod
-    def create(cls, properties: Dict[str, Any], commit: bool = True) -> ReportSchedule:
+    def create(cls, properties: Dict[str, Any], commit: bool = True) -> Model:
         """
         create a report schedule and nested recipients
         :raises: DAOCreateFailedError
@@ -188,7 +187,7 @@ class ReportScheduleDAO(BaseDAO):
     @classmethod
     def update(
         cls, model: Model, properties: Dict[str, Any], commit: bool = True
-    ) -> ReportSchedule:
+    ) -> Model:
         """
         create a report schedule and nested recipients
         :raises: DAOCreateFailedError
@@ -325,5 +324,6 @@ class ReportScheduleDAO(BaseDAO):
                 session.commit()
             return row_count
         except SQLAlchemyError as ex:
-            session.rollback()
+            if commit:
+                session.rollback()
             raise DAODeleteFailedError(str(ex)) from ex

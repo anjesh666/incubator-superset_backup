@@ -22,7 +22,7 @@ import {
   RadioButtonOption,
   sharedControlComponents,
 } from '@superset-ui/chart-controls';
-import { AreaChartStackControlOptions } from '../constants';
+import { AreaChartExtraControlsOptions } from '../constants';
 
 const { RadioButtonControl } = sharedControlComponents;
 
@@ -53,7 +53,7 @@ export function useExtraControl<
 
   const extraControlsOptions = useMemo(() => {
     if (area) {
-      return AreaChartStackControlOptions;
+      return AreaChartExtraControlsOptions;
     }
     return [];
   }, [area]);

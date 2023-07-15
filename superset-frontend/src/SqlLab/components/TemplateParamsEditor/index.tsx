@@ -17,16 +17,15 @@
  * under the License.
  */
 import React, { useState, useEffect } from 'react';
+import Badge from 'src/components/Badge';
 import { t, styled } from '@superset-ui/core';
 import { InfoTooltipWithTrigger } from '@superset-ui/chart-controls';
 import { debounce } from 'lodash';
 
-import Badge from 'src/components/Badge';
 import ModalTrigger from 'src/components/ModalTrigger';
 import { ConfigEditor } from 'src/components/AsyncAceEditor';
 import { FAST_DEBOUNCE } from 'src/constants';
 import { Tooltip } from 'src/components/Tooltip';
-import useQueryEditor from 'src/SqlLab/hooks/useQueryEditor';
 
 const StyledConfigEditor = styled(ConfigEditor)`
   &.ace_editor {
@@ -34,22 +33,17 @@ const StyledConfigEditor = styled(ConfigEditor)`
   }
 `;
 
-export type TemplateParamsEditorProps = {
-  queryEditorId: string;
-  language: 'yaml' | 'json';
-  onChange: () => void;
-};
-
-const TemplateParamsEditor = ({
-  queryEditorId,
+function TemplateParamsEditor({
+  code = '{}',
   language,
   onChange = () => {},
-}: TemplateParamsEditorProps) => {
+}: {
+  code: string;
+  language: 'yaml' | 'json';
+  onChange: () => void;
+}) {
   const [parsedJSON, setParsedJSON] = useState({});
   const [isValid, setIsValid] = useState(true);
-
-  const { templateParams } = useQueryEditor(queryEditorId, ['templateParams']);
-  const code = templateParams ?? '{}';
 
   useEffect(() => {
     try {
@@ -64,20 +58,20 @@ const TemplateParamsEditor = ({
   const modalBody = (
     <div>
       <p>
-        {t('Assign a set of parameters as')}
+        Assign a set of parameters as
         <code>JSON</code>
-        {t('below (example:')}
+        below (example:
         <code>{'{"my_table": "foo"}'}</code>
-        {t('), and they become available in your SQL (example:')}
-        <code>SELECT * FROM {'{{ my_table }}'} </code>) {t('by using')}&nbsp;
+        ), and they become available in your SQL (example:
+        <code>SELECT * FROM {'{{ my_table }}'} </code>) by using&nbsp;
         <a
           href="https://superset.apache.org/sqllab.html#templating-with-jinja"
           target="_blank"
           rel="noopener noreferrer"
         >
-          {t('Jinja templating')}
+          Jinja templating
         </a>{' '}
-        {t('syntax.')}
+        syntax.
       </p>
       <StyledConfigEditor
         mode={language}
@@ -121,6 +115,6 @@ const TemplateParamsEditor = ({
       modalBody={modalBody}
     />
   );
-};
+}
 
 export default TemplateParamsEditor;

@@ -31,7 +31,7 @@ export const expanded = () => (
     queriesData={[{ data }]}
     formData={{
       bottomMargin: 'auto',
-      colorScheme: 'd3Category10',
+      colorCcheme: 'd3Category10',
       contribution: false,
       groupby: ['region'],
       lineInterpolation: 'linear',

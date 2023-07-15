@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportSavedQueriesCommand(ExportModelsCommand):
+
     dao = SavedQueryDAO
     not_found = SavedQueryNotFoundError
 

@@ -20,7 +20,7 @@
 /* eslint-disable no-dupe-class-members */
 import { scaleOrdinal, ScaleOrdinal } from 'd3-scale';
 import { ExtensibleFunction } from '../models';
-import { ColorsInitLookup, ColorsLookup } from './types';
+import { ColorsLookup } from './types';
 import stringifyAndTrim from './stringifyAndTrim';
 import getSharedLabelColor from './SharedLabelColorSingleton';
 import { getAnalogousColors } from './utils';
@@ -39,7 +39,7 @@ class CategoricalColorScale extends ExtensibleFunction {
 
   scale: ScaleOrdinal<{ toString(): string }, string>;
 
-  parentForcedColors: ColorsLookup;
+  parentForcedColors?: ColorsLookup;
 
   forcedColors: ColorsLookup;
 
@@ -51,55 +51,34 @@ class CategoricalColorScale extends ExtensibleFunction {
    * @param {*} parentForcedColors optional parameter that comes from parent
    * (usually CategoricalColorNamespace) and supersede this.forcedColors
    */
-  constructor(colors: string[], parentForcedColors: ColorsInitLookup = {}) {
+  constructor(colors: string[], parentForcedColors?: ColorsLookup) {
     super((value: string, sliceId?: number) => this.getColor(value, sliceId));
 
     this.originColors = colors;
     this.colors = colors;
     this.scale = scaleOrdinal<{ toString(): string }, string>();
     this.scale.range(colors);
-
-    // reserve fixed colors in parent map based on their index in the scale
-    Object.entries(parentForcedColors).forEach(([key, value]) => {
-      if (typeof value === 'number') {
-        // eslint-disable-next-line no-param-reassign
-        parentForcedColors[key] = colors[value % colors.length];
-      }
-    });
-
-    // all indexes have been replaced by a fixed color
-    this.parentForcedColors = parentForcedColors as ColorsLookup;
+    this.parentForcedColors = parentForcedColors;
     this.forcedColors = {};
     this.multiple = 0;
-  }
-
-  removeSharedLabelColorFromRange(
-    sharedColorMap: Map<string, string>,
-    cleanedValue: string,
-  ) {
-    // make sure we don't overwrite the origin colors
-    const updatedRange = [...this.originColors];
-    // remove the color option from shared color
-    sharedColorMap.forEach((value: string, key: string) => {
-      if (key !== cleanedValue) {
-        const index = updatedRange.indexOf(value);
-        updatedRange.splice(index, 1);
-      }
-    });
-    this.range(updatedRange.length > 0 ? updatedRange : this.originColors);
   }
 
   getColor(value?: string, sliceId?: number) {
     const cleanedValue = stringifyAndTrim(value);
     const sharedLabelColor = getSharedLabelColor();
-    const sharedColorMap = sharedLabelColor.getColorMap();
-    const sharedColor = sharedColorMap.get(cleanedValue);
 
-    // priority: parentForcedColors > forcedColors > labelColors
-    let color =
-      this.parentForcedColors?.[cleanedValue] ||
-      this.forcedColors?.[cleanedValue] ||
-      sharedColor;
+    const parentColor =
+      this.parentForcedColors && this.parentForcedColors[cleanedValue];
+    if (parentColor) {
+      sharedLabelColor.addSlice(cleanedValue, parentColor, sliceId);
+      return parentColor;
+    }
+
+    const forcedColor = this.forcedColors[cleanedValue];
+    if (forcedColor) {
+      sharedLabelColor.addSlice(cleanedValue, forcedColor, sliceId);
+      return forcedColor;
+    }
 
     if (isFeatureEnabled(FeatureFlag.USE_ANALAGOUS_COLORS)) {
       const multiple = Math.floor(
@@ -111,15 +90,8 @@ class CategoricalColorScale extends ExtensibleFunction {
         this.range(this.originColors.concat(newRange));
       }
     }
-    const newColor = this.scale(cleanedValue);
-    if (!color) {
-      color = newColor;
-      if (isFeatureEnabled(FeatureFlag.AVOID_COLORS_COLLISION)) {
-        this.removeSharedLabelColorFromRange(sharedColorMap, cleanedValue);
-        color = this.scale(cleanedValue);
-      }
-    }
 
+    const color = this.scale(cleanedValue);
     sharedLabelColor.addSlice(cleanedValue, color, sliceId);
 
     return color;
@@ -198,7 +170,7 @@ class CategoricalColorScale extends ExtensibleFunction {
    *
    * If there are fewer elements in the range than in the domain, the scale will reuse values from the start of the range.
    *
-   * @param newRange Array of range values.
+   * @param range Array of range values.
    */
   range(newRange: string[]): this;
 

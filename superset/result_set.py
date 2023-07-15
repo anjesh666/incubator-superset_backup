@@ -24,7 +24,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-from numpy.typing import NDArray
 
 from superset.db_engine_specs import BaseEngineSpec
 from superset.superset_typing import DbapiDescription, DbapiResult, ResultSetColumnType
@@ -63,23 +62,9 @@ def stringify(obj: Any) -> str:
     return json.dumps(obj, default=utils.json_iso_dttm_ser)
 
 
-def stringify_values(array: NDArray[Any]) -> NDArray[Any]:
-    result = np.copy(array)
-
-    with np.nditer(result, flags=["refs_ok"], op_flags=[["readwrite"]]) as it:
-        for obj in it:
-            if na_obj := pd.isna(obj):
-                # pandas <NA> type cannot be converted to string
-                obj[na_obj] = None
-            else:
-                try:
-                    # for simple string conversions
-                    # this handles odd character types better
-                    obj[...] = obj.astype(str)
-                except ValueError:
-                    obj[...] = stringify(obj)
-
-    return result
+def stringify_values(array: np.ndarray) -> np.ndarray:
+    vstringify = np.vectorize(stringify)
+    return vstringify(array)
 
 
 def destringify(obj: str) -> Any:
@@ -112,7 +97,7 @@ class SupersetResultSet:
         pa_data: List[pa.Array] = []
         deduped_cursor_desc: List[Tuple[Any, ...]] = []
         numpy_dtype: List[Tuple[str, ...]] = []
-        stringified_arr: NDArray[Any]
+        stringified_arr: np.ndarray
 
         if cursor_description:
             # get deduped list of column names
@@ -141,7 +126,6 @@ class SupersetResultSet:
                     pa.lib.ArrowInvalid,
                     pa.lib.ArrowTypeError,
                     pa.lib.ArrowNotImplementedError,
-                    ValueError,
                     TypeError,  # this is super hackey,
                     # https://issues.apache.org/jira/browse/ARROW-7855
                 ):
@@ -177,9 +161,6 @@ class SupersetResultSet:
                         except Exception as ex:  # pylint: disable=broad-except
                             logger.exception(ex)
 
-        if not pa_data:
-            column_names = []
-
         self.table = pa.Table.from_arrays(pa_data, names=column_names)
         self._type_dict: Dict[str, Any] = {}
         try:
@@ -214,7 +195,7 @@ class SupersetResultSet:
             return table.to_pandas(integer_object_nulls=True, timestamp_as_object=True)
 
     @staticmethod
-    def first_nonempty(items: NDArray[Any]) -> Any:
+    def first_nonempty(items: List[Any]) -> Any:
         return next((i for i in items if i), None)
 
     def is_temporal(self, db_type_str: Optional[str]) -> bool:
@@ -225,10 +206,12 @@ class SupersetResultSet:
 
     def data_type(self, col_name: str, pa_dtype: pa.DataType) -> Optional[str]:
         """Given a pyarrow data type, Returns a generic database type"""
-        if set_type := self._type_dict.get(col_name):
+        set_type = self._type_dict.get(col_name)
+        if set_type:
             return set_type
 
-        if mapped_type := self.convert_pa_dtype(pa_dtype):
+        mapped_type = self.convert_pa_dtype(pa_dtype)
+        if mapped_type:
             return mapped_type
 
         return None

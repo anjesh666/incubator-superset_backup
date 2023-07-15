@@ -39,7 +39,6 @@ export type PluginFilterTimeProps = PluginFilterStylesProps & {
   formData: PluginFilterSelectQueryFormData;
   filterState: FilterState;
   inputRef: RefObject<HTMLInputElement>;
-  isOverflowingFilterBar?: boolean;
 } & PluginFilterHooks;
 
 export const DEFAULT_FORM_DATA: PluginFilterTimeCustomizeProps = {

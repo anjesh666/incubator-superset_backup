@@ -20,16 +20,16 @@ import pytest
 
 from superset import db
 from superset.models.dashboard import Dashboard
-from superset.utils.core import shortid
-from tests.integration_tests.dashboards.superset_factory_util import create_dashboard
+from tests.integration_tests.dashboard_utils import create_dashboard
+from tests.integration_tests.test_app import app
 
 
-@pytest.fixture
-def tabbed_dashboard(app_context):
+@pytest.fixture(scope="session")
+def tabbed_dashboard():
     position_json = {
         "DASHBOARD_VERSION_KEY": "v2",
         "GRID_ID": {
-            "children": ["TABS-L1A", "TABS-L1B"],
+            "children": ["TABS-IpViLohnyP"],
             "id": "GRID_ID",
             "parents": ["ROOT_ID"],
             "type": "GRID",
@@ -40,102 +40,38 @@ def tabbed_dashboard(app_context):
             "type": "HEADER",
         },
         "ROOT_ID": {"children": ["GRID_ID"], "id": "ROOT_ID", "type": "ROOT"},
-        "TAB-L1AA": {
+        "TAB-j53G4gtKGF": {
             "children": [],
-            "id": "TAB-L1AA",
+            "id": "TAB-j53G4gtKGF",
             "meta": {
                 "defaultText": "Tab title",
                 "placeholder": "Tab title",
-                "text": "Tab L1AA",
+                "text": "Tab 1",
             },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L1A"],
+            "parents": ["ROOT_ID", "GRID_ID", "TABS-IpViLohnyP"],
             "type": "TAB",
         },
-        "TAB-L1AB": {
+        "TAB-nerWR09Ju": {
             "children": [],
-            "id": "TAB-L1AB",
-            "meta": {
-                "defaultText": "Tab title",
-                "placeholder": "Tab title",
-                "text": "Tab L1AB",
-            },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L1A"],
-            "type": "TAB",
-        },
-        "TABS-L1A": {
-            "children": ["TAB-L1AA", "TAB-L1AB"],
-            "id": "TABS-L1A",
-            "meta": {},
-            "parents": ["ROOT_ID", "GRID_ID"],
-            "type": "TABS",
-        },
-        "TAB-L1BA": {
-            "children": [],
-            "id": "TAB-L1BA",
-            "meta": {
-                "defaultText": "Tab title",
-                "placeholder": "Tab title",
-                "text": "Tab L1B",
-            },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L1B"],
-            "type": "TAB",
-        },
-        "TAB-L1BB": {
-            "children": ["TABS-L2A"],
-            "id": "TAB-L1BB",
+            "id": "TAB-nerWR09Ju",
             "meta": {
                 "defaultText": "Tab title",
                 "placeholder": "Tab title",
                 "text": "Tab 2",
             },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L1B"],
+            "parents": ["ROOT_ID", "GRID_ID", "TABS-IpViLohnyP"],
             "type": "TAB",
         },
-        "TABS-L1B": {
-            "children": ["TAB-L1BA", "TAB-L1BB"],
-            "id": "TABS-L1B",
+        "TABS-IpViLohnyP": {
+            "children": ["TAB-j53G4gtKGF", "TAB-nerWR09Ju"],
+            "id": "TABS-IpViLohnyP",
             "meta": {},
             "parents": ["ROOT_ID", "GRID_ID"],
             "type": "TABS",
         },
-        "TAB-L2AA": {
-            "children": [],
-            "id": "TAB-L2AA",
-            "meta": {
-                "defaultText": "Tab title",
-                "placeholder": "Tab title",
-                "text": "Tab L2AA",
-            },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L2A"],
-            "type": "TAB",
-        },
-        "TAB-L2AB": {
-            "children": [],
-            "id": "TAB-L2AB",
-            "meta": {
-                "defaultText": "Tab title",
-                "placeholder": "Tab title",
-                "text": "Tab L2AB",
-            },
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L2A"],
-            "type": "TAB",
-        },
-        "TABS-L2A": {
-            "children": ["TAB-L2AA", "TAB-L2AB"],
-            "id": "TABS-L2A",
-            "meta": {},
-            "parents": ["ROOT_ID", "GRID_ID", "TABS-L1BB"],
-            "type": "TABS",
-        },
     }
-    dash = create_dashboard(
-        slug=f"tabbed-dash-{shortid()}",
-        dashboard_title="Test tabbed dash",
-        position_json=json.dumps(position_json),
-        slices=[],
-    )
-    db.session.add(dash)
-    db.session.commit()
+    with app.app_context():
+        dash = create_dashboard(
+            "tabbed-dash-test", "Tabbed Dash Test", json.dumps(position_json), []
+        )
     yield dash
-    db.session.query(Dashboard).filter_by(id=dash.id).delete()
-    db.session.commit()

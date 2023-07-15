@@ -21,7 +21,8 @@ import {
   Behavior,
   ChartMetadata,
   ChartPlugin,
-  hasGenericChartAxes,
+  FeatureFlag,
+  isFeatureEnabled,
   t,
 } from '@superset-ui/core';
 import {
@@ -55,14 +56,10 @@ export default class EchartsTimeseriesLineChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('../../EchartsTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t(
               'Line chart is used to visualize measurements taken over a given category. Line chart is a type of chart which displays information as a series of data points connected by straight line segments. It is a basic type of chart common in many fields.',
             )
@@ -76,7 +73,7 @@ export default class EchartsTimeseriesLineChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        name: hasGenericChartAxes
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t('Line Chart')
           : t('Time-series Line Chart'),
         tags: [

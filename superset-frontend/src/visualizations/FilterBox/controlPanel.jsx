@@ -32,7 +32,7 @@ export default {
             name: 'filter_configs',
             config: {
               type: 'CollectionControl',
-              label: t('Filters'),
+              label: 'Filters',
               description: t('Filter configuration for the filter box'),
               validators: [],
               controlName: 'FilterBoxItemControl',

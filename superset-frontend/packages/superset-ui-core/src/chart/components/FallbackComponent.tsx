@@ -18,7 +18,6 @@
  */
 
 import React from 'react';
-import { t } from '@superset-ui/core';
 import { SupersetTheme } from '../../style';
 import { FallbackPropsWithDimension } from './SuperChart';
 
@@ -42,13 +41,13 @@ export default function FallbackComponent({
     >
       <div>
         <div>
-          <b>{t('Oops! An error occurred!')}</b>
+          <b>Oops! An error occurred!</b>
         </div>
         <code>{error ? error.toString() : 'Unknown Error'}</code>
       </div>
       {componentStack && (
         <div>
-          <b>{t('Stack Trace:')}</b>
+          <b>Stack Trace:</b>
           <code>
             {componentStack.split('\n').map((row: string) => (
               <div key={row}>{row}</div>

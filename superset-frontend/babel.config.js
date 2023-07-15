@@ -103,10 +103,4 @@ module.exports = {
       plugins: [],
     },
   },
-  overrides: [
-    {
-      test: './plugins/plugin-chart-handlebars/node_modules/just-handlebars-helpers/*',
-      sourceType: 'unambiguous',
-    },
-  ],
 };

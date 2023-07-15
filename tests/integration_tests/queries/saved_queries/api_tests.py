@@ -98,7 +98,7 @@ class TestSavedQueryApi(SupersetTestCase):
                 self.insert_default_saved_query(
                     label=f"label{SAVED_QUERIES_FIXTURE_COUNT}",
                     schema=f"schema{SAVED_QUERIES_FIXTURE_COUNT}",
-                    username="gamma_sqllab",
+                    username="gamma",
                 )
             )
 
@@ -157,12 +157,12 @@ class TestSavedQueryApi(SupersetTestCase):
         """
         Saved Query API: Test get list saved query
         """
-        user = self.get_user("gamma_sqllab")
+        gamma = self.get_user("gamma")
         saved_queries = (
-            db.session.query(SavedQuery).filter(SavedQuery.created_by == user).all()
+            db.session.query(SavedQuery).filter(SavedQuery.created_by == gamma).all()
         )
 
-        self.login(username=user.username)
+        self.login(username="gamma")
         uri = f"api/v1/saved_query/"
         rv = self.get_assert_metric(uri, "get_list")
         assert rv.status_code == 200
@@ -445,8 +445,7 @@ class TestSavedQueryApi(SupersetTestCase):
         expected_result = {
             "count": len(databases),
             "result": [
-                {"extra": {}, "text": str(database), "value": database.id}
-                for database in databases
+                {"text": str(database), "value": database.id} for database in databases
             ],
         }
 
@@ -524,13 +523,10 @@ class TestSavedQueryApi(SupersetTestCase):
             "sql_tables": [{"catalog": None, "schema": None, "table": "table1"}],
             "schema": "schema1",
             "label": "label1",
-            "template_parameters": None,
         }
         data = json.loads(rv.data.decode("utf-8"))
-        self.assertIn("changed_on_delta_humanized", data["result"])
         for key, value in data["result"].items():
-            if key not in ("changed_on_delta_humanized",):
-                assert value == expected_result[key]
+            assert value == expected_result[key]
 
     def test_get_saved_query_not_found(self):
         """
@@ -748,7 +744,7 @@ class TestSavedQueryApi(SupersetTestCase):
             db.session.query(SavedQuery).filter(SavedQuery.created_by == admin).first()
         )
 
-        self.login(username="gamma_sqllab")
+        self.login(username="gamma")
         argument = [sample_query.id]
         uri = f"api/v1/saved_query/export/?q={prison.dumps(argument)}"
         rv = self.client.get(uri)

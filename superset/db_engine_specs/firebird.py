@@ -17,9 +17,8 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import types
-
 from superset.db_engine_specs.base import BaseEngineSpec, LimitMethod
+from superset.utils import core as utils
 
 
 class FirebirdEngineSpec(BaseEngineSpec):
@@ -74,14 +73,13 @@ class FirebirdEngineSpec(BaseEngineSpec):
     def convert_dttm(
         cls, target_type: str, dttm: datetime, db_extra: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
-        sqla_type = cls.get_sqla_column_type(target_type)
-
-        if isinstance(sqla_type, types.Date):
-            return f"CAST('{dttm.date().isoformat()}' AS DATE)"
-        if isinstance(sqla_type, types.DateTime):
+        tt = target_type.upper()
+        if tt == utils.TemporalType.TIMESTAMP:
             dttm_formatted = dttm.isoformat(sep=" ")
             dttm_valid_precision = dttm_formatted[: len("YYYY-MM-DD HH:MM:SS.MMMM")]
             return f"CAST('{dttm_valid_precision}' AS TIMESTAMP)"
-        if isinstance(sqla_type, types.Time):
+        if tt == utils.TemporalType.DATE:
+            return f"CAST('{dttm.date().isoformat()}' AS DATE)"
+        if tt == utils.TemporalType.TIME:
             return f"CAST('{dttm.time().isoformat()}' AS TIME)"
         return None

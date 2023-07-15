@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { t, ChartMetadata, ChartPlugin, Behavior } from '@superset-ui/core';
+import { t, ChartMetadata, ChartPlugin } from '@superset-ui/core';
 import controlPanel from './controlPanel';
 import transformProps from './transformProps';
 import buildQuery from './buildQuery';
@@ -36,6 +36,7 @@ const metadata = new ChartMetadata({
   name: t('Big Number with Trendline'),
   tags: [
     t('Advanced-Analytics'),
+    t('Formattable'),
     t('Line'),
     t('Percentages'),
     t('Popular'),
@@ -44,7 +45,6 @@ const metadata = new ChartMetadata({
     t('Trend'),
   ],
   thumbnail,
-  behaviors: [Behavior.DRILL_TO_DETAIL],
 });
 
 export default class BigNumberWithTrendlineChartPlugin extends ChartPlugin<

@@ -31,8 +31,7 @@ import {
   fetchFaveStar,
   saveFaveStar,
   savePublished,
-  setColorScheme,
-  setUnsavedChanges,
+  setColorSchemeAndUnsavedChanges,
   fetchCharts,
   updateCss,
   onChange,
@@ -99,6 +98,7 @@ function mapStateToProps({
     slug: dashboardInfo.slug,
     metadata: dashboardInfo.metadata,
     reports,
+    filterboxMigrationState: dashboardState.filterboxMigrationState,
   };
 }
 
@@ -112,8 +112,7 @@ function mapDispatchToProps(dispatch) {
       onRedo: redoLayoutAction,
       setEditMode,
       showBuilderPane,
-      setColorScheme,
-      setUnsavedChanges,
+      setColorSchemeAndUnsavedChanges,
       fetchFaveStar,
       saveFaveStar,
       savePublished,

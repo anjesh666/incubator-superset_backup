@@ -36,19 +36,19 @@ const defaultProps: PopoverDropdownProps = {
   onChange: jest.fn(),
 };
 
-test('renders with default props', async () => {
+test('renders with default props', () => {
   render(<PopoverDropdown {...defaultProps} />);
-  expect(await screen.findByRole('button')).toBeInTheDocument();
+  expect(screen.getByRole('button')).toBeInTheDocument();
   expect(screen.getByRole('button')).toHaveTextContent('Option 1');
 });
 
-test('renders the menu on click', async () => {
+test('renders the menu on click', () => {
   render(<PopoverDropdown {...defaultProps} />);
   userEvent.click(screen.getByRole('button'));
-  expect(await screen.findByRole('menu')).toBeInTheDocument();
+  expect(screen.getByRole('menu')).toBeInTheDocument();
 });
 
-test('renders with custom button', async () => {
+test('renders with custom button', () => {
   render(
     <PopoverDropdown
       {...defaultProps}
@@ -59,10 +59,10 @@ test('renders with custom button', async () => {
       )}
     />,
   );
-  expect(await screen.findByText('Custom Option 1')).toBeInTheDocument();
+  expect(screen.getByText('Custom Option 1')).toBeInTheDocument();
 });
 
-test('renders with custom option', async () => {
+test('renders with custom option', () => {
   render(
     <PopoverDropdown
       {...defaultProps}
@@ -74,13 +74,13 @@ test('renders with custom option', async () => {
     />,
   );
   userEvent.click(screen.getByRole('button'));
-  expect(await screen.findByText('Custom Option 1')).toBeInTheDocument();
+  expect(screen.getByText('Custom Option 1')).toBeInTheDocument();
 });
 
-test('triggers onChange', async () => {
+test('triggers onChange', () => {
   render(<PopoverDropdown {...defaultProps} />);
   userEvent.click(screen.getByRole('button'));
-  expect(await screen.findByText('Option 2')).toBeInTheDocument();
+  expect(screen.getByText('Option 2')).toBeInTheDocument();
   userEvent.click(screen.getByText('Option 2'));
   expect(defaultProps.onChange).toHaveBeenCalled();
 });

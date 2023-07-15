@@ -27,9 +27,10 @@ import {
   columnChoices,
   ControlPanelConfig,
   ControlPanelState,
+  formatSelectOptions,
   formatSelectOptionsForRange,
   sections,
-  sharedControls,
+  dndEntity,
   getStandardizedControls,
 } from '@superset-ui/chart-controls';
 
@@ -51,7 +52,7 @@ const allColumns = {
 };
 
 const dndAllColumns = {
-  ...sharedControls.entity,
+  ...dndEntity,
   description: t('Columns to display'),
 };
 
@@ -71,7 +72,7 @@ const config: ControlPanelConfig = {
             name: 'all_columns_x',
             config: {
               ...columnsConfig,
-              label: t('X Axis'),
+              label: 'X Axis',
             },
           },
         ],
@@ -80,7 +81,7 @@ const config: ControlPanelConfig = {
             name: 'all_columns_y',
             config: {
               ...columnsConfig,
-              label: t('Y Axis'),
+              label: 'Y Axis',
             },
           },
         ],
@@ -147,8 +148,8 @@ const config: ControlPanelConfig = {
               label: t('Rendering'),
               renderTrigger: true,
               choices: [
-                ['pixelated', t('pixelated (Sharp)')],
-                ['auto', t('auto (Smooth)')],
+                ['pixelated', 'pixelated (Sharp)'],
+                ['auto', 'auto (Smooth)'],
               ],
               default: 'pixelated',
               description: t(
@@ -165,9 +166,9 @@ const config: ControlPanelConfig = {
               type: 'SelectControl',
               label: t('Normalize Across'),
               choices: [
-                ['heatmap', t('heatmap')],
-                ['x', t('x')],
-                ['y', t('y')],
+                ['heatmap', 'heatmap'],
+                ['x', 'x'],
+                ['y', 'y'],
               ],
               default: 'heatmap',
               description: (
@@ -199,15 +200,15 @@ const config: ControlPanelConfig = {
               freeForm: true,
               clearable: false,
               label: t('Left Margin'),
-              choices: [
-                ['auto', t('auto')],
-                [50, '50'],
-                [75, '75'],
-                [100, '100'],
-                [125, '125'],
-                [150, '150'],
-                [200, '200'],
-              ],
+              choices: formatSelectOptions([
+                'auto',
+                50,
+                75,
+                100,
+                125,
+                150,
+                200,
+              ]),
               default: 'auto',
               renderTrigger: true,
               description: t(
@@ -224,15 +225,15 @@ const config: ControlPanelConfig = {
               clearable: false,
               freeForm: true,
               label: t('Bottom Margin'),
-              choices: [
-                ['auto', t('auto')],
-                [50, '50'],
-                [75, '75'],
-                [100, '100'],
-                [125, '125'],
-                [150, '150'],
-                [200, '200'],
-              ],
+              choices: formatSelectOptions([
+                'auto',
+                50,
+                75,
+                100,
+                125,
+                150,
+                200,
+              ]),
               default: 'auto',
               renderTrigger: true,
               description: t(

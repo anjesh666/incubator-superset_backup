@@ -50,22 +50,21 @@ def load_world_bank_data():
             "country_name": String(255),
             "region": String(255),
         }
-        with database.get_sqla_engine_with_context() as engine:
-            _get_dataframe(database).to_sql(
-                WB_HEALTH_POPULATION,
-                engine,
-                if_exists="replace",
-                chunksize=500,
-                dtype=dtype,
-                index=False,
-                method="multi",
-                schema=get_example_default_schema(),
-            )
+        _get_dataframe(database).to_sql(
+            WB_HEALTH_POPULATION,
+            get_example_database().get_sqla_engine(),
+            if_exists="replace",
+            chunksize=500,
+            dtype=dtype,
+            index=False,
+            method="multi",
+            schema=get_example_default_schema(),
+        )
 
     yield
     with app.app_context():
-        with get_example_database().get_sqla_engine_with_context() as engine:
-            engine.execute("DROP TABLE IF EXISTS wb_health_population")
+        engine = get_example_database().get_sqla_engine()
+        engine.execute("DROP TABLE IF EXISTS wb_health_population")
 
 
 @pytest.fixture()

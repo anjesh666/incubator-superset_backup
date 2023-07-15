@@ -17,25 +17,17 @@
  * under the License.
  */
 import {
-  ColorFormatters,
-  getColorFormatters,
-} from '@superset-ui/chart-controls';
-import {
   getNumberFormatter,
   GenericDataType,
   getMetricLabel,
   extractTimegrain,
   QueryFormData,
 } from '@superset-ui/core';
-import { BigNumberTotalChartProps, BigNumberVizProps } from '../types';
+import { BigNumberTotalChartProps } from '../types';
 import { getDateFormatter, parseMetricValue } from '../utils';
-import { Refs } from '../../types';
 
-export default function transformProps(
-  chartProps: BigNumberTotalChartProps,
-): BigNumberVizProps {
-  const { width, height, queriesData, formData, rawFormData, hooks } =
-    chartProps;
+export default function transformProps(chartProps: BigNumberTotalChartProps) {
+  const { width, height, queriesData, formData, rawFormData } = chartProps;
   const {
     headerFontSize,
     metric = 'value',
@@ -44,9 +36,7 @@ export default function transformProps(
     forceTimestampFormatting,
     timeFormat,
     yAxisFormat,
-    conditionalFormatting,
   } = formData;
-  const refs: Refs = {};
   const { data = [], coltypes = [] } = queriesData[0];
   const granularity = extractTimegrain(rawFormData as QueryFormData);
   const metricName = getMetricLabel(metric);
@@ -55,7 +45,7 @@ export default function transformProps(
     data.length === 0 ? null : parseMetricValue(data[0][metricName]);
 
   let metricEntry;
-  if (chartProps.datasource?.metrics) {
+  if (chartProps.datasource && chartProps.datasource.metrics) {
     metricEntry = chartProps.datasource.metrics.find(
       metricItem => metricItem.metric_name === metric,
     );
@@ -74,14 +64,6 @@ export default function transformProps(
       ? formatTime
       : getNumberFormatter(yAxisFormat ?? metricEntry?.d3format ?? undefined);
 
-  const { onContextMenu } = hooks;
-
-  const defaultColorFormatters = [] as ColorFormatters;
-
-  const colorThresholdFormatters =
-    getColorFormatters(conditionalFormatting, data, false) ??
-    defaultColorFormatters;
-
   return {
     width,
     height,
@@ -90,8 +72,5 @@ export default function transformProps(
     headerFontSize,
     subheaderFontSize,
     subheader: formattedSubheader,
-    onContextMenu,
-    refs,
-    colorThresholdFormatters,
   };
 }

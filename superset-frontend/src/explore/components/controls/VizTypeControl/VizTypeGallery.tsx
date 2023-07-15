@@ -50,7 +50,6 @@ interface VizTypeGalleryProps {
   onDoubleClick: () => void;
   selectedViz: string | null;
   className?: string;
-  denyList: string[];
 }
 
 type VizEntry = {
@@ -226,7 +225,7 @@ const SelectorLabel = styled.button`
     }
 
     &.selected {
-      background-color: ${theme.colors.primary.base};
+      background-color: ${theme.colors.primary.dark1};
       color: ${theme.colors.primary.light5};
 
       svg {
@@ -507,7 +506,6 @@ export default function VizTypeGallery(props: VizTypeGalleryProps) {
   const chartMetadata: VizEntry[] = useMemo(() => {
     const result = Object.entries(mountedPluginMetadata)
       .map(([key, value]) => ({ key, value }))
-      .filter(({ key }) => !props.denyList.includes(key))
       .filter(
         ({ value }) =>
           nativeFilterGate(value.behaviors || []) && !value.deprecated,

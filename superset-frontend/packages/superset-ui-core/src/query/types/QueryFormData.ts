@@ -166,15 +166,13 @@ export interface BaseFormData extends TimeRange, FormDataResidual {
   extra_form_data?: ExtraFormData;
   /** order descending */
   order_desc?: boolean;
-  /** limit number of time series
-   *  deprecated - use series_limit instead */
+  /** limit number of time series */
   limit?: number;
   /** limit number of row in the results */
   row_limit?: string | number | null;
   /** row offset for server side pagination */
   row_offset?: string | number | null;
-  /** The metric used to order timeseries for limiting
-   *  deprecated - use series_limit_metric instead */
+  /** The metric used to order timeseries for limiting */
   timeseries_limit_metric?: QueryFormMetric;
   /** Force refresh */
   force?: boolean;
@@ -186,7 +184,7 @@ export interface BaseFormData extends TimeRange, FormDataResidual {
   /** limit number of series */
   series_columns?: QueryFormColumn[];
   series_limit?: number;
-  series_limit_metric?: QueryFormMetric;
+  series_limit_metric?: QueryFormColumn;
 }
 
 /**

@@ -19,8 +19,6 @@
 import { t, ChartMetadata, ChartPlugin } from '@superset-ui/core';
 import transformProps from './transformProps';
 import thumbnail from './images/thumbnail.png';
-import example1 from './images/example1.jpg';
-import example2 from './images/example2.jpg';
 import controlPanel from './controlPanel';
 
 const metadata = new ChartMetadata({
@@ -28,7 +26,6 @@ const metadata = new ChartMetadata({
   description: t(
     'A polar coordinate chart where the circle is broken into wedges of equal angle, and the value represented by any wedge is illustrated by its area, rather than its radius or sweep angle.',
   ),
-  exampleGallery: [{ url: example1 }, { url: example2 }],
   name: t('Nightingale Rose Chart'),
   tags: [
     t('Legacy'),

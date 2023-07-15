@@ -30,7 +30,7 @@ import Icons from 'src/components/Icons';
 import { areObjectsEqual } from 'src/reduxUtils';
 import { getFilterValueForDisplay } from './utils';
 import { useFilters } from '../state';
-import { getFilterBarTestId } from '../utils';
+import { getFilterBarTestId } from '../index';
 
 const FilterHeader = styled.div`
   display: flex;

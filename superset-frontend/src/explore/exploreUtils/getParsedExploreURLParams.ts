@@ -29,10 +29,10 @@ const EXPLORE_URL_SEARCH_PARAMS = {
     parser: (formData: string) => {
       const formDataObject = JSON.parse(formData);
       if (formDataObject.datasource) {
-        const [datasource_id, datasource_type] =
+        const [dataset_id, dataset_type] =
           formDataObject.datasource.split('__');
-        formDataObject.datasource_id = datasource_id;
-        formDataObject.datasource_type = datasource_type;
+        formDataObject.dataset_id = dataset_id;
+        formDataObject.dataset_type = dataset_type;
         delete formDataObject.datasource;
       }
       return formDataObject;
@@ -41,17 +41,17 @@ const EXPLORE_URL_SEARCH_PARAMS = {
   slice_id: {
     name: 'slice_id',
   },
-  datasource_id: {
-    name: 'datasource_id',
+  dataset_id: {
+    name: 'dataset_id',
   },
-  datasource_type: {
-    name: 'datasource_type',
+  dataset_type: {
+    name: 'dataset_type',
   },
   datasource: {
     name: 'datasource',
     parser: (datasource: string) => {
-      const [datasource_id, datasource_type] = datasource.split('__');
-      return { datasource_id, datasource_type };
+      const [dataset_id, dataset_type] = datasource.split('__');
+      return { dataset_id, dataset_type };
     },
   },
   form_data_key: {
@@ -70,14 +70,14 @@ const EXPLORE_URL_SEARCH_PARAMS = {
 
 const EXPLORE_URL_PATH_PARAMS = {
   p: 'permalink_key', // permalink
-  table: 'datasource_id',
+  table: 'dataset_id',
 };
 
 // search params can be placed in form_data object
 // we need to "flatten" the search params to use them with /v1/explore endpoint
 const getParsedExploreURLSearchParams = (search: string) => {
   const urlSearchParams = new URLSearchParams(search);
-  return Array.from(urlSearchParams.keys()).reduce((acc, currentParam) => {
+  return Object.keys(EXPLORE_URL_SEARCH_PARAMS).reduce((acc, currentParam) => {
     const paramValue = urlSearchParams.get(currentParam);
     if (paramValue === null) {
       return acc;
@@ -93,10 +93,9 @@ const getParsedExploreURLSearchParams = (search: string) => {
     if (typeof parsedParamValue === 'object') {
       return { ...acc, ...parsedParamValue };
     }
-    const key = EXPLORE_URL_SEARCH_PARAMS[currentParam]?.name || currentParam;
     return {
       ...acc,
-      [key]: parsedParamValue,
+      [EXPLORE_URL_SEARCH_PARAMS[currentParam].name]: parsedParamValue,
     };
   }, {});
 };
@@ -106,7 +105,7 @@ const getParsedExploreURLPathParams = (pathname: string) =>
   Object.keys(EXPLORE_URL_PATH_PARAMS).reduce((acc, currentParam) => {
     const re = new RegExp(`/(${currentParam})/(\\w+)`);
     const pathGroups = pathname.match(re);
-    if (pathGroups?.[2]) {
+    if (pathGroups && pathGroups[2]) {
       return { ...acc, [EXPLORE_URL_PATH_PARAMS[currentParam]]: pathGroups[2] };
     }
     return acc;

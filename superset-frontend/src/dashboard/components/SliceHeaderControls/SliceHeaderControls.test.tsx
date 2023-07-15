@@ -19,9 +19,8 @@
 
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { getMockStore } from 'spec/fixtures/mockStore';
 import { render, screen } from 'spec/helpers/testing-library';
-import { FeatureFlag } from '@superset-ui/core';
+import { FeatureFlag } from 'src/featureFlags';
 import SliceHeaderControls, { SliceHeaderControlsProps } from '.';
 
 jest.mock('src/components/Dropdown', () => {
@@ -44,11 +43,9 @@ const createProps = (viz_type = 'sunburst') =>
     exploreChart: jest.fn(),
     exportCSV: jest.fn(),
     exportFullCSV: jest.fn(),
-    exportXLSX: jest.fn(),
     forceRefresh: jest.fn(),
     handleToggleFullSize: jest.fn(),
     toggleExpandSlice: jest.fn(),
-    logEvent: jest.fn(),
     slice: {
       slice_id: 371,
       slice_url: '/explore/?form_data=%7B%22slice_id%22%3A%20371%7D',
@@ -99,11 +96,9 @@ const createProps = (viz_type = 'sunburst') =>
 
 const renderWrapper = (overrideProps?: SliceHeaderControlsProps) => {
   const props = overrideProps || createProps();
-  const store = getMockStore();
   return render(<SliceHeaderControls {...props} />, {
     useRedux: true,
     useRouter: true,
-    store,
   });
 };
 
@@ -126,8 +121,6 @@ test('Should render default props', () => {
   delete props.exploreChart;
   // @ts-ignore
   delete props.exportCSV;
-  // @ts-ignore
-  delete props.exportXLSX;
   // @ts-ignore
   delete props.cachedDttm;
   // @ts-ignore
@@ -171,16 +164,6 @@ test('Should "export to CSV"', async () => {
   userEvent.click(await screen.findByText('Export to .CSV'));
   expect(props.exportCSV).toBeCalledTimes(1);
   expect(props.exportCSV).toBeCalledWith(371);
-});
-
-test('Should "export to Excel"', async () => {
-  const props = createProps();
-  renderWrapper(props);
-  expect(props.exportXLSX).toBeCalledTimes(0);
-  userEvent.hover(screen.getByText('Download'));
-  userEvent.click(await screen.findByText('Export to Excel'));
-  expect(props.exportXLSX).toBeCalledTimes(1);
-  expect(props.exportXLSX).toBeCalledWith(371);
 });
 
 test('Should not show "Download" if slice is filter box', () => {
@@ -252,25 +235,4 @@ test('Should "Enter fullscreen"', () => {
   expect(props.handleToggleFullSize).toBeCalledTimes(0);
   userEvent.click(screen.getByText('Enter fullscreen'));
   expect(props.handleToggleFullSize).toBeCalledTimes(1);
-});
-
-test('Drill to detail modal is under featureflag', () => {
-  // @ts-ignore
-  global.featureFlags = {
-    [FeatureFlag.DRILL_TO_DETAIL]: false,
-  };
-  const props = createProps();
-  renderWrapper(props);
-  expect(screen.queryByText('Drill to detail')).not.toBeInTheDocument();
-});
-
-test('Should show the "Drill to detail"', () => {
-  // @ts-ignore
-  global.featureFlags = {
-    [FeatureFlag.DRILL_TO_DETAIL]: true,
-  };
-  const props = createProps();
-  props.slice.slice_id = 18;
-  renderWrapper(props);
-  expect(screen.getByText('Drill to detail')).toBeInTheDocument();
 });

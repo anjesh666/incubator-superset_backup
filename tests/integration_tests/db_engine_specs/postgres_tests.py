@@ -17,16 +17,18 @@
 from textwrap import dedent
 from unittest import mock
 
-from flask.ctx import AppContext
 from sqlalchemy import column, literal_column
 from sqlalchemy.dialects import postgresql
 
-from superset.db_engine_specs import load_engine_specs
+from superset.db_engine_specs import get_engine_specs
 from superset.db_engine_specs.postgres import PostgresEngineSpec
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.models.sql_lab import Query
-from superset.utils.database import get_example_database
-from tests.integration_tests.db_engine_specs.base_tests import TestDbEngineSpec
+from superset.utils.core import GenericDataType
+from tests.integration_tests.db_engine_specs.base_tests import (
+    assert_generic_types,
+    TestDbEngineSpec,
+)
 from tests.integration_tests.fixtures.certificates import ssl_certificate
 from tests.integration_tests.fixtures.database import default_db_extra
 
@@ -43,11 +45,11 @@ class TestPostgresDbEngineSpec(TestDbEngineSpec):
         inspector.get_table_names = mock.Mock(return_value=["schema.table", "table_2"])
         inspector.get_foreign_table_names = mock.Mock(return_value=["table_3"])
 
-        pg_result_expected = {"schema.table", "table_2", "table_3"}
+        pg_result_expected = ["schema.table", "table_2", "table_3"]
         pg_result = PostgresEngineSpec.get_table_names(
             database=mock.ANY, schema="schema", inspector=inspector
         )
-        assert pg_result_expected == pg_result
+        self.assertListEqual(pg_result_expected, pg_result)
 
     def test_time_exp_literal_no_grain(self):
         """
@@ -98,6 +100,29 @@ class TestPostgresDbEngineSpec(TestDbEngineSpec):
         result = str(expr.compile(None, dialect=postgresql.dialect()))
         self.assertEqual(result, "DATE_TRUNC('year', \"MixedCase\")")
 
+    def test_convert_dttm(self):
+        """
+        DB Eng Specs (postgres): Test conversion to date time
+        """
+        dttm = self.get_dttm()
+
+        self.assertEqual(
+            PostgresEngineSpec.convert_dttm("DATE", dttm),
+            "TO_DATE('2019-01-02', 'YYYY-MM-DD')",
+        )
+
+        self.assertEqual(
+            PostgresEngineSpec.convert_dttm("TIMESTAMP", dttm),
+            "TO_TIMESTAMP('2019-01-02 03:04:05.678900', 'YYYY-MM-DD HH24:MI:SS.US')",
+        )
+
+        self.assertEqual(
+            PostgresEngineSpec.convert_dttm("DATETIME", dttm),
+            "TO_TIMESTAMP('2019-01-02 03:04:05.678900', 'YYYY-MM-DD HH24:MI:SS.US')",
+        )
+
+        self.assertEqual(PostgresEngineSpec.convert_dttm("TIME", dttm), None)
+
     def test_empty_dbapi_cursor_description(self):
         """
         DB Eng Specs (postgres): Test empty cursor description (no columns)
@@ -112,11 +137,7 @@ class TestPostgresDbEngineSpec(TestDbEngineSpec):
         """
         DB Eng Specs (postgres): Test "postgres" in engine spec
         """
-        backends = set()
-        for engine in load_engine_specs():
-            backends.add(engine.engine)
-            backends.update(engine.engine_aliases)
-        assert "postgres" in backends
+        self.assertIn("postgres", get_engine_specs())
 
     def test_extras_without_ssl(self):
         db = mock.Mock()
@@ -153,7 +174,7 @@ class TestPostgresDbEngineSpec(TestDbEngineSpec):
 
         cursor = mock.Mock()
         cursor.fetchone.return_value = (
-            "Seq Scan on birth_names (cost=0.00..1537.91 rows=75691 width=46)",
+            "Seq Scan on birth_names  (cost=0.00..1537.91 rows=75691 width=46)",
         )
         sql = "SELECT * FROM birth_names"
         results = PostgresEngineSpec.estimate_statement_cost(sql, cursor)
@@ -479,15 +500,7 @@ def test_base_parameters_mixin():
     )
 
     parameters_from_uri = PostgresEngineSpec.get_parameters_from_uri(sqlalchemy_uri)
-    assert parameters_from_uri == {
-        "username": "username",
-        "password": "password",
-        "host": "localhost",
-        "port": 5432,
-        "database": "dbname",
-        "query": {"foo": "bar"},
-        "encryption": True,
-    }
+    assert parameters_from_uri == parameters
 
     json_schema = PostgresEngineSpec.parameters_json_schema()
     assert json_schema == {
@@ -518,17 +531,26 @@ def test_base_parameters_mixin():
     }
 
 
-def test_get_catalog_names(app_context: AppContext) -> None:
-    """
-    Test the ``get_catalog_names`` method.
-    """
-    database = get_example_database()
-
-    if database.backend != "postgresql":
-        return
-
-    with database.get_inspector_with_context() as inspector:
-        assert PostgresEngineSpec.get_catalog_names(database, inspector) == [
-            "postgres",
-            "superset",
-        ]
+def test_generic_type():
+    type_expectations = (
+        # Numeric
+        ("SMALLINT", GenericDataType.NUMERIC),
+        ("INTEGER", GenericDataType.NUMERIC),
+        ("BIGINT", GenericDataType.NUMERIC),
+        ("DECIMAL", GenericDataType.NUMERIC),
+        ("NUMERIC", GenericDataType.NUMERIC),
+        ("REAL", GenericDataType.NUMERIC),
+        ("DOUBLE PRECISION", GenericDataType.NUMERIC),
+        ("MONEY", GenericDataType.NUMERIC),
+        # String
+        ("CHAR", GenericDataType.STRING),
+        ("VARCHAR", GenericDataType.STRING),
+        ("TEXT", GenericDataType.STRING),
+        # Temporal
+        ("DATE", GenericDataType.TEMPORAL),
+        ("TIMESTAMP", GenericDataType.TEMPORAL),
+        ("TIME", GenericDataType.TEMPORAL),
+        # Boolean
+        ("BOOLEAN", GenericDataType.BOOLEAN),
+    )
+    assert_generic_types(PostgresEngineSpec, type_expectations)

@@ -17,24 +17,22 @@
  * under the License.
  */
 import React from 'react';
-import { mount } from 'enzyme';
+import { mount, shallow } from 'enzyme';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
-import thunk from 'redux-thunk';
 import { supersetTheme, ThemeProvider } from '@superset-ui/core';
 import Collapse from 'src/components/Collapse';
 import { IconTooltip } from 'src/components/IconTooltip';
 import TableElement from 'src/SqlLab/components/TableElement';
 import ColumnElement from 'src/SqlLab/components/ColumnElement';
 import waitForComponentToPaint from 'spec/helpers/waitForComponentToPaint';
-import { initialState, table } from 'src/SqlLab/fixtures';
-
-const middlewares = [thunk];
-const mockStore = configureStore(middlewares);
+import { mockedActions, table } from 'src/SqlLab/fixtures';
 
 describe('TableElement', () => {
-  const store = mockStore(initialState);
+  const mockStore = configureStore([]);
+  const store = mockStore({});
   const mockedProps = {
+    actions: mockedActions,
     table,
     timeout: 0,
   };
@@ -59,17 +57,7 @@ describe('TableElement', () => {
     expect(wrapper.find(IconTooltip)).toHaveLength(4);
   });
   it('has 14 columns', () => {
-    const wrapper = mount(
-      <Provider store={store}>
-        <TableElement {...mockedProps} />
-      </Provider>,
-      {
-        wrappingComponent: ThemeProvider,
-        wrappingComponentProps: {
-          theme: supersetTheme,
-        },
-      },
-    );
+    const wrapper = shallow(<TableElement {...mockedProps} />);
     expect(wrapper.find(ColumnElement)).toHaveLength(14);
   });
   it('mounts', () => {
@@ -155,7 +143,6 @@ describe('TableElement', () => {
       },
     );
     wrapper.find('.table-remove').hostNodes().simulate('click');
-    expect(store.getActions()).toHaveLength(1);
-    expect(store.getActions()[0].type).toEqual('REMOVE_DATA_PREVIEW');
+    expect(mockedActions.removeDataPreview.called).toBe(true);
   });
 });

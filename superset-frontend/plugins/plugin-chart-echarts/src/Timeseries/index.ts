@@ -21,7 +21,8 @@ import {
   Behavior,
   ChartMetadata,
   ChartPlugin,
-  hasGenericChartAxes,
+  FeatureFlag,
+  isFeatureEnabled,
   t,
 } from '@superset-ui/core';
 import buildQuery from './buildQuery';
@@ -44,19 +45,15 @@ export default class EchartsTimeseriesChartPlugin extends ChartPlugin<
       controlPanel,
       loadChart: () => import('./EchartsTimeseries'),
       metadata: new ChartMetadata({
-        behaviors: [
-          Behavior.INTERACTIVE_CHART,
-          Behavior.DRILL_TO_DETAIL,
-          Behavior.DRILL_BY,
-        ],
+        behaviors: [Behavior.INTERACTIVE_CHART],
         category: t('Evolution'),
         credits: ['https://echarts.apache.org'],
-        description: hasGenericChartAxes
+        description: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
           ? t(
-              'Swiss army knife for visualizing data. Choose between step, line, scatter, and bar charts. This viz type has many customization options as well.',
+              'Swiss army knife for visualizing data. Choose between  step, line, scatter, and bar charts. This viz type has many customization options as well.',
             )
           : t(
-              'Swiss army knife for visualizing time series data. Choose between step, line, scatter, and bar charts. This viz type has many customization options as well.',
+              'Swiss army knife for visualizing time series data. Choose between  step, line, scatter, and bar charts. This viz type has many customization options as well.',
             ),
         exampleGallery: [{ url: example }],
         supportedAnnotationTypes: [
@@ -65,7 +62,9 @@ export default class EchartsTimeseriesChartPlugin extends ChartPlugin<
           AnnotationType.Interval,
           AnnotationType.Timeseries,
         ],
-        name: hasGenericChartAxes ? t('Generic Chart') : t('Time-series Chart'),
+        name: isFeatureEnabled(FeatureFlag.GENERIC_CHART_AXES)
+          ? t('Generic Chart')
+          : t('Time-series Chart'),
         tags: [
           t('Advanced-Analytics'),
           t('Aesthetic'),

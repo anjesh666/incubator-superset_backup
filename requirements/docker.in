@@ -17,4 +17,3 @@
 -r base.in
 -e .[postgres]
 gevent
-greenlet>=2.0.2

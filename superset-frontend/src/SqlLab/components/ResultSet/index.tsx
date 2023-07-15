@@ -16,20 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { CSSProperties } from 'react';
 import ButtonGroup from 'src/components/ButtonGroup';
 import Alert from 'src/components/Alert';
 import Button from 'src/components/Button';
 import shortid from 'shortid';
-import {
-  QueryResponse,
-  QueryState,
-  styled,
-  t,
-  useTheme,
-  usePrevious,
-} from '@superset-ui/core';
+import { styled, t, QueryResponse } from '@superset-ui/core';
 import ErrorMessageWithStackTrace from 'src/components/ErrorMessage/ErrorMessageWithStackTrace';
 import {
   ISaveableDatasource,
@@ -42,18 +34,13 @@ import { mountExploreUrl } from 'src/explore/exploreUtils';
 import { postFormData } from 'src/explore/exploreUtils/formData';
 import ProgressBar from 'src/components/ProgressBar';
 import Loading from 'src/components/Loading';
-import FilterableTable from 'src/components/FilterableTable';
+import FilterableTable, {
+  MAX_COLUMNS_FOR_TABLE,
+} from 'src/components/FilterableTable';
 import CopyToClipboard from 'src/components/CopyToClipboard';
 import { addDangerToast } from 'src/components/MessageToasts/actions';
 import { prepareCopyToClipboardTabularData } from 'src/utils/common';
-import {
-  addQueryEditor,
-  clearQueryResults,
-  CtasEnum,
-  fetchQueryResults,
-  reFetchQueryResults,
-  reRunQuery,
-} from 'src/SqlLab/actions/sqlLab';
+import { CtasEnum } from 'src/SqlLab/actions/sqlLab';
 import { URL_PARAMS } from 'src/constants';
 import ExploreCtasResultsButton from '../ExploreCtasResultsButton';
 import ExploreResultsButton from '../ExploreResultsButton';
@@ -67,7 +54,11 @@ enum LIMITING_FACTOR {
   NOT_LIMITED = 'NOT_LIMITED',
 }
 
-export interface ResultSetProps {
+const LOADING_STYLES: CSSProperties = { position: 'relative', minHeight: 100 };
+
+interface ResultSetProps {
+  showControls?: boolean;
+  actions: Record<string, any>;
   cache?: boolean;
   csv?: boolean;
   database?: Record<string, any>;
@@ -81,16 +72,13 @@ export interface ResultSetProps {
   defaultQueryLimit: number;
 }
 
-const ResultlessStyles = styled.div`
-  position: relative;
-  min-height: ${({ theme }) => theme.gridUnit * 25}px;
-  [role='alert'] {
-    margin-top: ${({ theme }) => theme.gridUnit * 2}px;
-  }
-  .sql-result-track-job {
-    margin-top: ${({ theme }) => theme.gridUnit * 2}px;
-  }
-`;
+interface ResultSetState {
+  searchText: string;
+  showExploreResultsButton: boolean;
+  data: Record<string, any>[];
+  showSaveDatasetModal: boolean;
+  alertIsOpen: boolean;
+}
 
 // Making text render line breaks/tabs as is as monospace,
 // but wrapping text too so text doesn't overflow
@@ -103,8 +91,8 @@ const MonospaceDiv = styled.div`
 `;
 
 const ReturnedRows = styled.div`
-  font-size: ${({ theme }) => theme.typography.sizes.s}px;
-  line-height: ${({ theme }) => theme.gridUnit * 6}px;
+  font-size: 13px;
+  line-height: 24px;
 `;
 
 const ResultSetControls = styled.div`
@@ -119,86 +107,119 @@ const ResultSetButtons = styled.div`
   padding-right: ${({ theme }) => 2 * theme.gridUnit}px;
 `;
 
-const LimitMessage = styled.span`
-  color: ${({ theme }) => theme.colors.secondary.light1};
-  margin-left: ${({ theme }) => theme.gridUnit * 2}px;
+const ResultSetErrorMessage = styled.div`
+  padding-top: ${({ theme }) => 4 * theme.gridUnit}px;
 `;
 
-const ResultSet = ({
-  cache = false,
-  csv = true,
-  database = {},
-  displayLimit,
-  height,
-  query,
-  search = true,
-  showSql = false,
-  visualize = true,
-  user,
-  defaultQueryLimit,
-}: ResultSetProps) => {
-  const theme = useTheme();
-  const [searchText, setSearchText] = useState('');
-  const [cachedData, setCachedData] = useState<Record<string, unknown>[]>([]);
-  const [showSaveDatasetModal, setShowSaveDatasetModal] = useState(false);
-  const [alertIsOpen, setAlertIsOpen] = useState(false);
+export default class ResultSet extends React.PureComponent<
+  ResultSetProps,
+  ResultSetState
+> {
+  static defaultProps = {
+    cache: false,
+    csv: true,
+    database: {},
+    search: true,
+    showSql: false,
+    visualize: true,
+  };
 
-  const dispatch = useDispatch();
+  constructor(props: ResultSetProps) {
+    super(props);
+    this.state = {
+      searchText: '',
+      showExploreResultsButton: false,
+      data: [],
+      showSaveDatasetModal: false,
+      alertIsOpen: false,
+    };
+    this.changeSearch = this.changeSearch.bind(this);
+    this.fetchResults = this.fetchResults.bind(this);
+    this.popSelectStar = this.popSelectStar.bind(this);
+    this.reFetchQueryResults = this.reFetchQueryResults.bind(this);
+    this.toggleExploreResultsButton =
+      this.toggleExploreResultsButton.bind(this);
+  }
 
-  const reRunQueryIfSessionTimeoutErrorOnMount = useCallback(() => {
+  async componentDidMount() {
+    // only do this the first time the component is rendered/mounted
+    this.reRunQueryIfSessionTimeoutErrorOnMount();
+  }
+
+  UNSAFE_componentWillReceiveProps(nextProps: ResultSetProps) {
+    // when new results comes in, save them locally and clear in store
+    if (
+      this.props.cache &&
+      !nextProps.query.cached &&
+      nextProps.query.results &&
+      nextProps.query.results.data &&
+      nextProps.query.results.data.length > 0
+    ) {
+      this.setState({ data: nextProps.query.results.data }, () =>
+        this.clearQueryResults(nextProps.query),
+      );
+    }
+    if (
+      nextProps.query.resultsKey &&
+      nextProps.query.resultsKey !== this.props.query.resultsKey
+    ) {
+      this.fetchResults(nextProps.query);
+    }
+  }
+
+  calculateAlertRefHeight = (alertElement: HTMLElement | null) => {
+    if (alertElement) {
+      this.setState({ alertIsOpen: true });
+    } else {
+      this.setState({ alertIsOpen: false });
+    }
+  };
+
+  clearQueryResults(query: QueryResponse) {
+    this.props.actions.clearQueryResults(query);
+  }
+
+  popSelectStar(tempSchema: string | null, tempTable: string) {
+    const qe = {
+      id: shortid.generate(),
+      title: tempTable,
+      autorun: false,
+      dbId: this.props.query.dbId,
+      sql: `SELECT * FROM ${tempSchema ? `${tempSchema}.` : ''}${tempTable}`,
+    };
+    this.props.actions.addQueryEditor(qe);
+  }
+
+  toggleExploreResultsButton() {
+    this.setState(prevState => ({
+      showExploreResultsButton: !prevState.showExploreResultsButton,
+    }));
+  }
+
+  changeSearch(event: React.ChangeEvent<HTMLInputElement>) {
+    this.setState({ searchText: event.target.value });
+  }
+
+  fetchResults(query: QueryResponse) {
+    this.props.actions.fetchQueryResults(query, this.props.displayLimit);
+  }
+
+  reFetchQueryResults(query: QueryResponse) {
+    this.props.actions.reFetchQueryResults(query);
+  }
+
+  reRunQueryIfSessionTimeoutErrorOnMount() {
+    const { query } = this.props;
     if (
       query.errorMessage &&
       query.errorMessage.indexOf('session timed out') > 0
     ) {
-      dispatch(reRunQuery(query));
+      this.props.actions.reRunQuery(query);
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    // only do this the first time the component is rendered/mounted
-    reRunQueryIfSessionTimeoutErrorOnMount();
-  }, [reRunQueryIfSessionTimeoutErrorOnMount]);
-
-  const fetchResults = (query: QueryResponse) => {
-    dispatch(fetchQueryResults(query, displayLimit));
-  };
-
-  const prevQuery = usePrevious(query);
-  useEffect(() => {
-    if (cache && query.cached && query?.results?.data?.length > 0) {
-      setCachedData(query.results.data);
-      dispatch(clearQueryResults(query));
-    }
-    if (query.resultsKey && query.resultsKey !== prevQuery?.resultsKey) {
-      fetchResults(query);
-    }
-  }, [query, cache]);
-
-  const calculateAlertRefHeight = (alertElement: HTMLElement | null) => {
-    if (alertElement) {
-      setAlertIsOpen(true);
-    } else {
-      setAlertIsOpen(false);
-    }
-  };
-
-  const popSelectStar = (tempSchema: string | null, tempTable: string) => {
-    const qe = {
-      id: shortid.generate(),
-      name: tempTable,
-      autorun: false,
-      dbId: query.dbId,
-      sql: `SELECT * FROM ${tempSchema ? `${tempSchema}.` : ''}${tempTable}`,
-    };
-    dispatch(addQueryEditor(qe));
-  };
-
-  const changeSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchText(event.target.value);
-  };
-
-  const createExploreResultsOnClick = async () => {
-    const { results } = query;
+  createExploreResultsOnClick = async () => {
+    const { results } = this.props.query;
 
     if (results?.query_id) {
       const key = await postFormData(results.query_id, 'query', {
@@ -217,17 +238,16 @@ const ResultSet = ({
     }
   };
 
-  const getExportCsvUrl = (clientId: string) =>
-    `/api/v1/sqllab/export/${clientId}/`;
-
-  const renderControls = () => {
-    if (search || visualize || csv) {
-      let { data } = query.results;
-      if (cache && query.cached) {
-        data = cachedData;
+  renderControls() {
+    if (this.props.search || this.props.visualize || this.props.csv) {
+      let { data } = this.props.query.results;
+      if (this.props.cache && this.props.query.cached) {
+        ({ data } = this.state);
       }
-      const { columns } = query.results;
+      const { columns } = this.props.query.results;
       // Added compute logic to stop user from being able to Save & Explore
+      const { showSaveDatasetModal } = this.state;
+      const { query } = this.props;
 
       const datasource: ISaveableDatasource = {
         columns: query.results.columns as ISimpleColumn[],
@@ -242,7 +262,7 @@ const ResultSet = ({
         <ResultSetControls>
           <SaveDatasetModal
             visible={showSaveDatasetModal}
-            onHide={() => setShowSaveDatasetModal(false)}
+            onHide={() => this.setState({ showSaveDatasetModal: false })}
             buttonTextOnSave={t('Save & Explore')}
             buttonTextOnOverwrite={t('Overwrite & Explore')}
             modalDescription={t(
@@ -251,14 +271,18 @@ const ResultSet = ({
             datasource={datasource}
           />
           <ResultSetButtons>
-            {visualize && database?.allows_virtual_table_explore && (
-              <ExploreResultsButton
-                database={database}
-                onClick={createExploreResultsOnClick}
-              />
-            )}
-            {csv && (
-              <Button buttonSize="small" href={getExportCsvUrl(query.id)}>
+            {this.props.visualize &&
+              this.props.database?.allows_virtual_table_explore && (
+                <ExploreResultsButton
+                  database={this.props.database}
+                  onClick={() => this.setState({ showSaveDatasetModal: true })}
+                />
+                // In order to use the new workflow for a query powered chart, replace the
+                // above function with:
+                // onClick={this.createExploreResultsOnClick}
+              )}
+            {this.props.csv && (
+              <Button buttonSize="small" href={`/superset/csv/${query.id}`}>
                 <i className="fa fa-file-text-o" /> {t('Download to CSV')}
               </Button>
             )}
@@ -274,27 +298,32 @@ const ResultSet = ({
               hideTooltip
             />
           </ResultSetButtons>
-          {search && (
+          {this.props.search && (
             <input
               type="text"
-              onChange={changeSearch}
-              value={searchText}
+              onChange={this.changeSearch}
+              value={this.state.searchText}
               className="form-control input-sm"
-              placeholder={t('Filter results')}
+              disabled={columns.length > MAX_COLUMNS_FOR_TABLE}
+              placeholder={
+                columns.length > MAX_COLUMNS_FOR_TABLE
+                  ? t('Too many columns to filter')
+                  : t('Filter results')
+              }
             />
           )}
         </ResultSetControls>
       );
     }
     return <div />;
-  };
+  }
 
-  const renderRowsReturned = () => {
-    const { results, rows, queryLimit, limitingFactor } = query;
+  renderRowsReturned() {
+    const { results, rows, queryLimit, limitingFactor } = this.props.query;
     let limitMessage;
     const limitReached = results?.displayLimitReached;
     const limit = queryLimit || results.query.limit;
-    const isAdmin = !!user?.roles?.Admin;
+    const isAdmin = !!this.props.user?.roles?.Admin;
     const rowsCount = Math.min(rows || 0, results?.data?.length || 0);
 
     const displayMaxRowsReachedMessage = {
@@ -312,10 +341,10 @@ const ResultSet = ({
       ),
     };
     const shouldUseDefaultDropdownAlert =
-      limit === defaultQueryLimit &&
+      limit === this.props.defaultQueryLimit &&
       limitingFactor === LIMITING_FACTOR.DROPDOWN;
 
-    if (limitingFactor === LIMITING_FACTOR.QUERY && csv) {
+    if (limitingFactor === LIMITING_FACTOR.QUERY && this.props.csv) {
       limitMessage = t(
         'The number of rows displayed is limited to %(rows)d by the query',
         { rows },
@@ -346,27 +375,27 @@ const ResultSet = ({
         {!limitReached && !shouldUseDefaultDropdownAlert && (
           <span title={tooltipText}>
             {rowsReturnedMessage}
-            <LimitMessage>{limitMessage}</LimitMessage>
+            <span>{limitMessage}</span>
           </span>
         )}
         {!limitReached && shouldUseDefaultDropdownAlert && (
-          <div ref={calculateAlertRefHeight}>
+          <div ref={this.calculateAlertRefHeight}>
             <Alert
               type="warning"
               message={t('%(rows)d rows returned', { rows })}
-              onClose={() => setAlertIsOpen(false)}
+              onClose={() => this.setState({ alertIsOpen: false })}
               description={t(
-                'The number of rows displayed is limited to %(rows)d by the dropdown.',
-                { rows },
+                'The number of rows displayed is limited to %s by the dropdown.',
+                rows,
               )}
             />
           </div>
         )}
         {limitReached && (
-          <div ref={calculateAlertRefHeight}>
+          <div ref={this.calculateAlertRefHeight}>
             <Alert
               type="warning"
-              onClose={() => setAlertIsOpen(false)}
+              onClose={() => this.setState({ alertIsOpen: false })}
               message={t('%(rows)d rows returned', { rows: rowsCount })}
               description={
                 isAdmin
@@ -378,193 +407,186 @@ const ResultSet = ({
         )}
       </ReturnedRows>
     );
-  };
-
-  const limitReached = query?.results?.displayLimitReached;
-  let sql;
-  let exploreDBId = query.dbId;
-  if (database?.explore_database_id) {
-    exploreDBId = database.explore_database_id;
   }
 
-  let trackingUrl;
-  if (
-    query.trackingUrl &&
-    query.state !== QueryState.SUCCESS &&
-    query.state !== QueryState.FETCHING
-  ) {
-    trackingUrl = (
-      <Button
-        className="sql-result-track-job"
-        buttonSize="small"
-        href={query.trackingUrl}
-        target="_blank"
-      >
-        {query.state === QueryState.RUNNING
-          ? t('Track job')
-          : t('See query details')}
-      </Button>
-    );
-  }
-
-  if (showSql) {
-    sql = <HighlightedSql sql={query.sql} />;
-  }
-
-  if (query.state === QueryState.STOPPED) {
-    return <Alert type="warning" message={t('Query was stopped')} />;
-  }
-
-  if (query.state === QueryState.FAILED) {
-    return (
-      <ResultlessStyles>
-        <ErrorMessageWithStackTrace
-          title={t('Database error')}
-          error={query?.errors?.[0]}
-          subtitle={<MonospaceDiv>{query.errorMessage}</MonospaceDiv>}
-          copyText={query.errorMessage || undefined}
-          link={query.link}
-          source="sqllab"
-        />
-        {trackingUrl}
-      </ResultlessStyles>
-    );
-  }
-
-  if (query.state === QueryState.SUCCESS && query.ctas) {
-    const { tempSchema, tempTable } = query;
-    let object = 'Table';
-    if (query.ctas_method === CtasEnum.VIEW) {
-      object = 'View';
+  render() {
+    const { query } = this.props;
+    const limitReached = query?.results?.displayLimitReached;
+    let sql;
+    let exploreDBId = query.dbId;
+    if (this.props.database && this.props.database.explore_database_id) {
+      exploreDBId = this.props.database.explore_database_id;
     }
-    return (
-      <div>
-        <Alert
-          type="info"
-          message={
-            <>
-              {t(object)} [
-              <strong>
-                {tempSchema ? `${tempSchema}.` : ''}
-                {tempTable}
-              </strong>
-              ] {t('was created')} &nbsp;
-              <ButtonGroup>
-                <Button
-                  buttonSize="small"
-                  css={{ marginRight: theme.gridUnit }}
-                  onClick={() => popSelectStar(tempSchema, tempTable)}
-                >
-                  {t('Query in a new tab')}
-                </Button>
-                <ExploreCtasResultsButton
-                  table={tempTable}
-                  schema={tempSchema}
-                  dbId={exploreDBId}
-                />
-              </ButtonGroup>
-            </>
-          }
+
+    if (this.props.showSql) sql = <HighlightedSql sql={query.sql} />;
+
+    if (query.state === 'stopped') {
+      return <Alert type="warning" message={t('Query was stopped')} />;
+    }
+    if (query.state === 'failed') {
+      return (
+        <ResultSetErrorMessage>
+          <ErrorMessageWithStackTrace
+            title={t('Database error')}
+            error={query?.errors?.[0]}
+            subtitle={<MonospaceDiv>{query.errorMessage}</MonospaceDiv>}
+            copyText={query.errorMessage || undefined}
+            link={query.link}
+            source="sqllab"
+          />
+        </ResultSetErrorMessage>
+      );
+    }
+    if (query.state === 'success' && query.ctas) {
+      const { tempSchema, tempTable } = query;
+      let object = 'Table';
+      if (query.ctas_method === CtasEnum.VIEW) {
+        object = 'View';
+      }
+      return (
+        <div>
+          <Alert
+            type="info"
+            message={
+              <>
+                {t(object)} [
+                <strong>
+                  {tempSchema ? `${tempSchema}.` : ''}
+                  {tempTable}
+                </strong>
+                ] {t('was created')} &nbsp;
+                <ButtonGroup>
+                  <Button
+                    buttonSize="small"
+                    className="m-r-5"
+                    onClick={() => this.popSelectStar(tempSchema, tempTable)}
+                  >
+                    {t('Query in a new tab')}
+                  </Button>
+                  <ExploreCtasResultsButton
+                    // @ts-ignore Redux types are difficult to work with, ignoring for now
+                    actions={this.props.actions}
+                    table={tempTable}
+                    schema={tempSchema}
+                    dbId={exploreDBId}
+                  />
+                </ButtonGroup>
+              </>
+            }
+          />
+        </div>
+      );
+    }
+    if (query.state === 'success' && query.results) {
+      const { results } = query;
+      // Accounts for offset needed for height of ResultSetRowsReturned component if !limitReached
+      const rowMessageHeight = !limitReached ? 32 : 0;
+      // Accounts for offset needed for height of Alert if this.state.alertIsOpen
+      const alertContainerHeight = 70;
+      // We need to calculate the height of this.renderRowsReturned()
+      // if we want results panel to be propper height because the
+      // FilterTable component nedds an explcit height to render
+      // react-virtualized Table component
+      const height = this.state.alertIsOpen
+        ? this.props.height - alertContainerHeight
+        : this.props.height - rowMessageHeight;
+      let data;
+      if (this.props.cache && query.cached) {
+        ({ data } = this.state);
+      } else if (results && results.data) {
+        ({ data } = results);
+      }
+      if (data && data.length > 0) {
+        const expandedColumns = results.expanded_columns
+          ? results.expanded_columns.map(col => col.name)
+          : [];
+        return (
+          <>
+            {this.renderControls()}
+            {this.renderRowsReturned()}
+            {sql}
+            <FilterableTable
+              data={data}
+              orderedColumnKeys={results.columns.map(col => col.name)}
+              height={height}
+              filterText={this.state.searchText}
+              expandedColumns={expandedColumns}
+            />
+          </>
+        );
+      }
+      if (data && data.length === 0) {
+        return (
+          <Alert type="warning" message={t('The query returned no data')} />
+        );
+      }
+    }
+    if (query.cached || (query.state === 'success' && !query.results)) {
+      if (query.isDataPreview) {
+        return (
+          <Button
+            buttonSize="small"
+            buttonStyle="primary"
+            onClick={() =>
+              this.reFetchQueryResults({
+                ...query,
+                isDataPreview: true,
+              })
+            }
+          >
+            {t('Fetch data preview')}
+          </Button>
+        );
+      }
+      if (query.resultsKey) {
+        return (
+          <Button
+            buttonSize="small"
+            buttonStyle="primary"
+            onClick={() => this.fetchResults(query)}
+          >
+            {t('Refetch results')}
+          </Button>
+        );
+      }
+    }
+    let trackingUrl;
+    let progressBar;
+    if (query.progress > 0) {
+      progressBar = (
+        <ProgressBar
+          percent={parseInt(query.progress.toFixed(0), 10)}
+          striped
         />
+      );
+    }
+    if (query.trackingUrl) {
+      trackingUrl = (
+        <Button
+          buttonSize="small"
+          onClick={() => query.trackingUrl && window.open(query.trackingUrl)}
+        >
+          {t('Track job')}
+        </Button>
+      );
+    }
+    const progressMsg =
+      query && query.extra && query.extra.progress
+        ? query.extra.progress
+        : null;
+
+    return (
+      <div style={LOADING_STYLES}>
+        <div>{!progressBar && <Loading position="normal" />}</div>
+        {/* show loading bar whenever progress bar is completed but needs time to render */}
+        <div>{query.progress === 100 && <Loading position="normal" />}</div>
+        <QueryStateLabel query={query} />
+        <div>
+          {progressMsg && <Alert type="success" message={progressMsg} />}
+        </div>
+        <div>{query.progress !== 100 && progressBar}</div>
+        <div>{trackingUrl}</div>
       </div>
     );
   }
-
-  if (query.state === QueryState.SUCCESS && query.results) {
-    const { results } = query;
-    // Accounts for offset needed for height of ResultSetRowsReturned component if !limitReached
-    const rowMessageHeight = !limitReached ? 32 : 0;
-    // Accounts for offset needed for height of Alert if this.state.alertIsOpen
-    const alertContainerHeight = 70;
-    // We need to calculate the height of this.renderRowsReturned()
-    // if we want results panel to be proper height because the
-    // FilterTable component needs an explicit height to render
-    // the Table component
-    const rowsHeight = alertIsOpen
-      ? height - alertContainerHeight
-      : height - rowMessageHeight;
-    let data;
-    if (cache && query.cached) {
-      data = cachedData;
-    } else if (results?.data) {
-      ({ data } = results);
-    }
-    if (data && data.length > 0) {
-      const expandedColumns = results.expanded_columns
-        ? results.expanded_columns.map(col => col.name)
-        : [];
-      return (
-        <>
-          {renderControls()}
-          {renderRowsReturned()}
-          {sql}
-          <FilterableTable
-            data={data}
-            orderedColumnKeys={results.columns.map(col => col.name)}
-            height={rowsHeight}
-            filterText={searchText}
-            expandedColumns={expandedColumns}
-          />
-        </>
-      );
-    }
-    if (data && data.length === 0) {
-      return <Alert type="warning" message={t('The query returned no data')} />;
-    }
-  }
-
-  if (query.cached || (query.state === QueryState.SUCCESS && !query.results)) {
-    if (query.isDataPreview) {
-      return (
-        <Button
-          buttonSize="small"
-          buttonStyle="primary"
-          onClick={() =>
-            dispatch(
-              reFetchQueryResults({
-                ...query,
-                isDataPreview: true,
-              }),
-            )
-          }
-        >
-          {t('Fetch data preview')}
-        </Button>
-      );
-    }
-    if (query.resultsKey) {
-      return (
-        <Button
-          buttonSize="small"
-          buttonStyle="primary"
-          onClick={() => fetchResults(query)}
-        >
-          {t('Refetch results')}
-        </Button>
-      );
-    }
-  }
-
-  let progressBar;
-  if (query.progress > 0) {
-    progressBar = (
-      <ProgressBar percent={parseInt(query.progress.toFixed(0), 10)} striped />
-    );
-  }
-
-  const progressMsg = query?.extra?.progress ?? null;
-
-  return (
-    <ResultlessStyles>
-      <div>{!progressBar && <Loading position="normal" />}</div>
-      {/* show loading bar whenever progress bar is completed but needs time to render */}
-      <div>{query.progress === 100 && <Loading position="normal" />}</div>
-      <QueryStateLabel query={query} />
-      <div>{progressMsg && <Alert type="success" message={progressMsg} />}</div>
-      <div>{query.progress !== 100 && progressBar}</div>
-      {trackingUrl && <div>{trackingUrl}</div>}
-    </ResultlessStyles>
-  );
-};
-
-export default ResultSet;
+}

@@ -52,7 +52,7 @@ function toggleCheckbox(apiUrlPrefix: string, selector: string) {
     .then(() => undefined)
     .catch(response =>
       getClientErrorObject(response).then(parsedResp => {
-        if (parsedResp?.message) {
+        if (parsedResp && parsedResp.message) {
           showApiMessage(parsedResp);
         }
       }),

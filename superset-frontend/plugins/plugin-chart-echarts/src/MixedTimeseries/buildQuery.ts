@@ -18,13 +18,12 @@
  */
 import {
   buildQueryContext,
+  DTTM_ALIAS,
   ensureIsArray,
   normalizeOrderBy,
   PostProcessingPivot,
   QueryFormData,
   QueryObject,
-  isXAxisSet,
-  getXAxisColumn,
 } from '@superset-ui/core';
 import {
   pivotOperator,
@@ -42,8 +41,11 @@ import {
 } from '../utils/formDataSuffix';
 
 export default function buildQuery(formData: QueryFormData) {
+  const { x_axis: index } = formData;
+  const is_timeseries = index === DTTM_ALIAS || !index;
   const baseFormData = {
     ...formData,
+    is_timeseries,
   };
 
   const formData1 = removeFormDataSuffix(baseFormData, '_b');
@@ -53,14 +55,9 @@ export default function buildQuery(formData: QueryFormData) {
     buildQueryContext(fd, baseQueryObject => {
       const queryObject = {
         ...baseQueryObject,
-        columns: [
-          ...(isXAxisSet(formData)
-            ? ensureIsArray(getXAxisColumn(formData))
-            : []),
-          ...ensureIsArray(fd.groupby),
-        ],
+        columns: [...ensureIsArray(index), ...ensureIsArray(fd.groupby)],
         series_columns: fd.groupby,
-        ...(isXAxisSet(formData) ? {} : { is_timeseries: true }),
+        is_timeseries,
       };
 
       const pivotOperatorInRuntime: PostProcessingPivot = isTimeComparison(
@@ -68,7 +65,12 @@ export default function buildQuery(formData: QueryFormData) {
         queryObject,
       )
         ? timeComparePivotOperator(fd, queryObject)
-        : pivotOperator(fd, queryObject);
+        : pivotOperator(fd, {
+            ...queryObject,
+            columns: fd.groupby,
+            index,
+            is_timeseries,
+          });
 
       const tmpQueryObject = {
         ...queryObject,
@@ -78,7 +80,11 @@ export default function buildQuery(formData: QueryFormData) {
           rollingWindowOperator(fd, queryObject),
           timeCompareOperator(fd, queryObject),
           resampleOperator(fd, queryObject),
-          renameOperator(fd, queryObject),
+          renameOperator(fd, {
+            ...queryObject,
+            columns: fd.groupby,
+            is_timeseries,
+          }),
           flattenOperator(fd, queryObject),
         ],
       } as QueryObject;

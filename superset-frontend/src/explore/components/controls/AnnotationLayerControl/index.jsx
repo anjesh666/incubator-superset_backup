@@ -26,9 +26,7 @@ import AsyncEsmComponent from 'src/components/AsyncEsmComponent';
 import { getChartKey } from 'src/explore/exploreUtils';
 import { runAnnotationQuery } from 'src/components/Chart/chartAction';
 import CustomListItem from 'src/explore/components/controls/CustomListItem';
-import ControlPopover, {
-  getSectionContainerElement,
-} from '../ControlPopover/ControlPopover';
+import ControlPopover from '../ControlPopover/ControlPopover';
 
 const AnnotationLayer = AsyncEsmComponent(
   () => import('./AnnotationLayer'),
@@ -71,7 +69,7 @@ class AnnotationLayerControl extends React.PureComponent {
   }
 
   componentDidMount() {
-    // preload the AnnotationLayer component and dependent libraries i.e. mathjs
+    // preload the AnotationLayer component and dependent libraries i.e. mathjs
     AnnotationLayer.preload();
   }
 
@@ -116,11 +114,6 @@ class AnnotationLayerControl extends React.PureComponent {
 
   removeAnnotationLayer(annotation) {
     const annotations = this.props.value.filter(anno => anno !== annotation);
-    // So scrollbar doesnt get stuck on hidden
-    const element = getSectionContainerElement();
-    if (element) {
-      element.style.setProperty('overflow-y', 'auto', 'important');
-    }
     this.props.onChange(annotations);
   }
 

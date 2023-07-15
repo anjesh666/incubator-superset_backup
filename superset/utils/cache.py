@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, Optional, TYPE_CHECKING, Union
 from flask import current_app as app, request
 from flask_caching import Cache
 from flask_caching.backends import NullCache
-from werkzeug.wrappers import Response
+from werkzeug.wrappers.etag import ETagResponseMixin
 
 from superset import db
 from superset.extensions import cache_manager
@@ -95,7 +95,8 @@ def view_cache_key(*args: Any, **kwargs: Any) -> str:  # pylint: disable=unused-
 
 
 def memoized_func(
-    key: Optional[str] = None, cache: Cache = cache_manager.cache
+    key: Optional[str] = None,
+    cache: Cache = cache_manager.cache,
 ) -> Callable[..., Any]:
     """
     Decorator with configurable key and cache backend.
@@ -142,7 +143,7 @@ def memoized_func(
             if not kwargs.get("force") and obj is not None:
                 return obj
             obj = f(*args, **kwargs)
-            cache.set(cache_key, obj, timeout=kwargs.get("cache_timeout", 0))
+            cache.set(cache_key, obj, timeout=kwargs.get("cache_timeout"))
             return obj
 
         return wrapped_f
@@ -174,7 +175,7 @@ def etag_cache(
 
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(f)
-        def wrapper(*args: Any, **kwargs: Any) -> Response:
+        def wrapper(*args: Any, **kwargs: Any) -> ETagResponseMixin:
             # Check if the user can access the resource
             if raise_for_access:
                 try:

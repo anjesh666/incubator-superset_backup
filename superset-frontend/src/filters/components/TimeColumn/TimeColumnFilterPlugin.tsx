@@ -38,8 +38,6 @@ export default function PluginFilterTimeColumn(
     height,
     width,
     setDataMask,
-    setHoveredFilter,
-    unsetHoveredFilter,
     setFocusedFilter,
     unsetFocusedFilter,
     setFilterActive,
@@ -116,10 +114,8 @@ export default function PluginFilterTimeColumn(
           placeholder={placeholderText}
           // @ts-ignore
           onChange={handleChange}
-          onBlur={unsetFocusedFilter}
-          onFocus={setFocusedFilter}
-          onMouseEnter={setHoveredFilter}
-          onMouseLeave={unsetHoveredFilter}
+          onMouseEnter={setFocusedFilter}
+          onMouseLeave={unsetFocusedFilter}
           ref={inputRef}
           options={options}
           onDropdownVisibleChange={setFilterActive}

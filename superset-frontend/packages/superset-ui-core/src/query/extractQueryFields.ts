@@ -30,7 +30,6 @@ import {
   FormDataResidual,
   QueryMode,
 } from './types/QueryFormData';
-import { hasGenericChartAxes } from './getXAxis';
 
 /**
  * Extra SQL query related fields from chart form data.
@@ -106,7 +105,7 @@ export default function extractQueryFields(
     }
   });
 
-  if (!hasGenericChartAxes && includeTime && !columns.includes(DTTM_ALIAS)) {
+  if (includeTime && !columns.includes(DTTM_ALIAS)) {
     columns.unshift(DTTM_ALIAS);
   }
 

@@ -52,8 +52,8 @@ const config: ControlPanelConfig = {
             config: {
               ...lineType.config,
               choices: [
-                ['polyline', t('Polyline')],
-                ['json', t('JSON')],
+                ['polyline', 'Polyline'],
+                ['json', 'JSON'],
               ],
             },
           },
