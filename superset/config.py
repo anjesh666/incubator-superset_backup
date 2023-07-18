@@ -244,7 +244,7 @@ SCHEDULED_QUERIES: Dict[str, Any] = {}
 # GLOBALS FOR APP Builder
 # ------------------------------
 # Uncomment to setup Your App name
-APP_NAME = "Superset"
+APP_NAME = "Skanda 12i"
 
 # Specify the App icon
 APP_ICON = "/static/assets/images/superset-logo-horiz.png"
